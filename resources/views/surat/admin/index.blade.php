@@ -10,7 +10,7 @@
         <div>
             <div class="flex items-center gap-2 mb-1">
                 <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">Panel Administrasi</span>
-                <span class="text-xs text-stone-500">Lingkup Wilayah: RT 0{{ auth()->user()->rt->nomor_rt ?? 5 }} / RW 0{{ auth()->user()->rw->nomor_rw ?? 3 }}</span>
+                <span class="text-xs text-stone-500">Lingkup Wilayah: RT 0{{ auth()->user()?->rt?->nomor_rt ?? 5 }} / RW 0{{ auth()->user()?->rw?->nomor_rw ?? 3 }}</span>
             </div>
             <h1 class="text-2xl font-bold text-stone-900 tracking-tight">Meja Verifikasi Surat</h1>
             <p class="text-xs text-stone-500 mt-0.5">Tinjau, setujui, tolak, atau minta kelengkapan dokumen permohonan surat masuk warga.</p>

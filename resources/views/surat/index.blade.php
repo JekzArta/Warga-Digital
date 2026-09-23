@@ -12,7 +12,7 @@
             <p class="text-xs text-stone-500 mt-0.5">Kelola dan ajukan surat keterangan resmi secara mandiri tanpa antre di rumah RT.</p>
         </div>
 
-        @if(auth()->user()->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris']))
+        @if(auth()->user()?->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris']))
         <a href="{{ route('admin.surat.index') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-semibold shadow-sm transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
@@ -39,7 +39,7 @@
                         elseif ($jam >= 15 && $jam < 18) $salam = 'Selamat Sore';
                         else $salam = 'Selamat Malam';
                     @endphp
-                    {{ $salam }}, {{ explode(' ', auth()->user()->nama)[0] }}!
+                    {{ $salam }}, {{ explode(' ', auth()->user()?->nama ?? 'Warga')[0] }}!
                 </h2>
                 <p class="text-xs text-stone-400 mt-1">
                     {{ \Carbon\Carbon::now()->translatedFormat('l, d F Y') }}
@@ -53,7 +53,7 @@
                 </span>
 
                 <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono font-medium bg-white/10 text-stone-300 border border-white/10">
-                    <span>NIK 3273 02•• •••• {{ substr(auth()->user()->nik ?? '0001', -4) }}</span>
+                    <span>NIK 3273 02•• •••• {{ substr(auth()->user()?->nik ?? '0001', -4) }}</span>
                     <svg class="w-3.5 h-3.5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
                     </svg>

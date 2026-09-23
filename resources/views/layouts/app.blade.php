@@ -90,7 +90,7 @@
                             <span>Pengajuan Surat</span>
                         </a>
 
-                        @if(auth()->user()->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris']))
+                        @if(auth()->user()?->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris']))
                         <a href="{{ route('admin.surat.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium transition-all {{ request()->routeIs('admin.surat.*') ? 'bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
                             <div class="flex items-center gap-3">
                                 <svg class="w-4 h-4 {{ request()->routeIs('admin.surat.*') ? 'text-emerald-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
