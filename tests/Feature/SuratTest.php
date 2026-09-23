@@ -257,4 +257,33 @@ class SuratTest extends TestCase
 
         $response->assertStatus(404);
     }
+
+    public function test_warga_can_view_surat_show_with_uploaded_file_and_kelengkapan(): void
+    {
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'form_data' => [
+                'alamat_domisili' => 'Jl. Sekeloa No 10',
+                'keperluan' => 'Daftar Kuliah',
+                'dokumen_url' => 'surat_dokumen/sample.jpg',
+                'dokumen_nama' => 'ktp_asli.jpg',
+            ],
+            'status' => 'PERLU_KELENGKAPAN',
+        ]);
+
+        SuratKelengkapan::create([
+            'pengajuan_id' => $surat->id,
+            'pesan' => 'Ini berkas tambahan revisi',
+            'file_url' => 'surat_kelengkapan/revisi.jpg',
+            'dari_role' => 'warga',
+        ]);
+
+        $response = $this->actingAs($this->wargaRt5)->get(route('surat.show', $surat->id));
+
+        $response->assertStatus(200);
+        $response->assertSee('Berkas Lampiran: ktp_asli.jpg');
+        $response->assertSee('Lihat Berkas Perbaikan Terlampir');
+    }
 }

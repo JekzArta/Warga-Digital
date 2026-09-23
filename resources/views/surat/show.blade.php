@@ -407,7 +407,7 @@
 
                 @if($item->file_url)
                 <div class="pt-1.5">
-                    <a href="{{ asset('storage/' . $item->file_url') }}" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 underline">
+                    <a href="{{ asset('storage/' . $item->file_url) }}" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 underline">
                         <span>Lihat Berkas Perbaikan Terlampir</span>
                         <span>&rarr;</span>
                     </a>
