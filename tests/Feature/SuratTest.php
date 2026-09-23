@@ -286,4 +286,272 @@ class SuratTest extends TestCase
         $response->assertSee('Berkas Lampiran: ktp_asli.jpg');
         $response->assertSee('Lihat Berkas Perbaikan Terlampir');
     }
+
+    /**
+     * TEST 1 — SKD + Ketua RT:
+     * PDF terbit dengan nama Ketua RT, jabatan Ketua RT, nomor surat konsisten,
+     * terminologi tanpa kata 'pengantar', tanpa glyph '?', dan muat 1 halaman A4.
+     */
+    public function test_skd_approved_by_ketua_rt_produces_correct_single_page_pdf(): void
+    {
+        $ketuaRtBaru = User::create([
+            'kode_warga' => 'WRG-RT05-998',
+            'rt_id' => $this->rt5->id,
+            'rw_id' => $this->rt5->rw_id,
+            'nik' => '3273021005059998',
+            'nama' => 'H. Suherman Sastrawan',
+            'jenis_kelamin' => 'L',
+            'tanggal_lahir' => '1970-01-01',
+            'alamat' => 'Jl. Sekeloa RT 05',
+            'no_hp' => '081299998888',
+            'password' => bcrypt('password123'),
+            'status' => 'aktif',
+        ]);
+        UserRole::create([
+            'user_id' => $ketuaRtBaru->id,
+            'role' => 'ketua_rt',
+            'assigned_at' => now(),
+        ]);
+
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'form_data' => [
+                'alamat_domisili' => 'Jl. Sekeloa No. 15 RT 05 RW 03',
+                'lama_tinggal' => '3 Tahun',
+                'keperluan' => 'Pencetakan Kartu Keluarga Baru',
+            ],
+            'status' => 'MENUNGGU',
+        ]);
+
+        // Ketua RT melakukan approval
+        $this->actingAs($ketuaRtBaru)->post(route('admin.surat.approve', $surat->id));
+        $surat->refresh();
+
+        $this->assertEquals('DISETUJUI', $surat->status);
+        $this->assertEquals($ketuaRtBaru->id, $surat->reviewed_by);
+        $this->assertNotNull($surat->nomor_surat);
+
+        // Generate PDF
+        $pdf = \App\Services\SuratPdfGenerator::generate($surat);
+        $output = $pdf->output();
+
+        // 1. Pastikan PDF valid
+        $this->assertNotEmpty($output);
+
+        // 2. Pastikan tepat 1 halaman A4
+        $pageCount = $pdf->getDomPDF()->get_canvas()->get_page_count();
+        $this->assertEquals(1, $pageCount, 'PDF SKD harus muat dalam 1 halaman A4 secara natural.');
+
+        // 3. Render HTML template untuk verifikasi konten tekstual
+        $renderedHtml = view('surat.pdf.template', [
+            'surat' => $surat,
+            'user' => $surat->user,
+            'rt' => $surat->rt,
+            'rw' => $surat->rt->rw,
+            'klien' => $surat->rt->rw->klien,
+            'reviewer' => $surat->reviewer,
+            'jabatanPenandatangan' => \App\Services\SuratPdfGenerator::getJabatanPenandatangan($surat->reviewer, $surat->rt, $surat->rt->rw)[0],
+            'subJabatanPenandatangan' => \App\Services\SuratPdfGenerator::getJabatanPenandatangan($surat->reviewer, $surat->rt, $surat->rt->rw)[1],
+            'namaJenisSurat' => \App\Services\SuratPdfGenerator::getNamaJenisSurat($surat->jenis_surat),
+            'verificationCode' => 'VALIDATIONTESTCODE',
+            'tanggalSurat' => '23 September 2026',
+        ])->render();
+
+        // Verifikasi nama dan jabatan penandatangan
+        $this->assertStringContainsString('H. Suherman Sastrawan', $renderedHtml);
+        $this->assertStringContainsString('Ketua RT 05 / RW 03', $renderedHtml);
+        $this->assertStringNotContainsString('Bambang Hartono', $renderedHtml);
+
+        // Verifikasi terminologi SKD (tidak boleh mengandung 'pengantar')
+        $this->assertStringContainsString('Surat keterangan ini dibuat', $renderedHtml);
+        $this->assertStringNotContainsString('Surat keterangan pengantar ini', $renderedHtml);
+
+        // Verifikasi tidak ada karakter '?' hasil glyph rusak
+        $this->assertStringNotContainsString('? TERVERIFIKASI', $renderedHtml);
+        $this->assertStringContainsString('TERVERIFIKASI SISTEM', $renderedHtml);
+
+        // Verifikasi nomor surat tercetak konsisten
+        $this->assertStringContainsString($surat->nomor_surat, $renderedHtml);
+    }
+
+    /**
+     * TEST 2 — SKD + Wakil RT:
+     * Wakil RT approve -> PDF menampilkan nama Wakil RT dan jabatan Wakil RT (bukan Ketua RT).
+     */
+    public function test_skd_approved_by_wakil_rt_displays_wakil_rt_title(): void
+    {
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'form_data' => [
+                'alamat_domisili' => 'Jl. Sekeloa No. 10',
+                'keperluan' => 'Pendaftaran BPJS',
+            ],
+            'status' => 'MENUNGGU',
+        ]);
+
+        // Wakil RT approve
+        $this->actingAs($this->wakilRt5)->post(route('admin.surat.approve', $surat->id));
+        $surat->refresh();
+
+        $this->assertEquals('DISETUJUI', $surat->status);
+        $this->assertEquals($this->wakilRt5->id, $surat->reviewed_by);
+
+        // Periksa resolusi jabatan di SuratPdfGenerator
+        [$jabatan, $subJabatan] = \App\Services\SuratPdfGenerator::getJabatanPenandatangan($surat->reviewer, $surat->rt, $surat->rt->rw);
+        $this->assertEquals('Wakil RT 05 / RW 03', $jabatan);
+        $this->assertEquals('Wakil RT 05', $subJabatan);
+        $this->assertStringNotContainsString('Ketua RT', $jabatan);
+
+        // Generate PDF
+        $pdf = \App\Services\SuratPdfGenerator::generate($surat);
+        $this->assertNotEmpty($pdf->output());
+
+        // Render template dan cek teks
+        $renderedHtml = view('surat.pdf.template', [
+            'surat' => $surat,
+            'user' => $surat->user,
+            'rt' => $surat->rt,
+            'rw' => $surat->rt->rw,
+            'klien' => $surat->rt->rw->klien,
+            'reviewer' => $surat->reviewer,
+            'jabatanPenandatangan' => $jabatan,
+            'subJabatanPenandatangan' => $subJabatan,
+            'namaJenisSurat' => \App\Services\SuratPdfGenerator::getNamaJenisSurat($surat->jenis_surat),
+            'verificationCode' => 'VALIDATIONTESTCODE',
+            'tanggalSurat' => '23 September 2026',
+        ])->render();
+
+        $this->assertStringContainsString($this->wakilRt5->nama, $renderedHtml);
+        $this->assertStringContainsString('Wakil RT 05 / RW 03', $renderedHtml);
+        $this->assertStringNotContainsString('Ketua RT 05 / RW 03', $renderedHtml);
+    }
+
+    /**
+     * TEST 3 — Render Ulang:
+     * Render / download PDF berulang kali tidak mengubah nomor surat, reviewer, atau data.
+     */
+    public function test_re_rendering_pdf_maintains_consistent_nomor_surat_and_data(): void
+    {
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'nomor_surat' => '009/RT05-RW03/SKD/IX/2026',
+            'form_data' => [
+                'alamat_domisili' => 'Jl. Sekeloa RT 05 RW 03',
+                'keperluan' => 'Urus Paspor',
+            ],
+            'status' => 'DISETUJUI',
+            'reviewed_by' => $this->ketuaRt5->id,
+        ]);
+
+        $initialNomor = $surat->nomor_surat;
+        $initialReviewer = $surat->reviewed_by;
+
+        // Render 1
+        $pdf1 = \App\Services\SuratPdfGenerator::generate($surat);
+        $this->assertNotEmpty($pdf1->output());
+
+        // Render 2
+        $pdf2 = \App\Services\SuratPdfGenerator::generate($surat);
+        $this->assertNotEmpty($pdf2->output());
+
+        // Download via controller
+        $resDownload = $this->actingAs($this->wargaRt5)->get(route('surat.download-pdf', $surat->id));
+        $resDownload->assertStatus(200);
+
+        // Verifikasi integritas data di database
+        $surat->refresh();
+        $this->assertEquals($initialNomor, $surat->nomor_surat, 'Nomor surat tidak boleh berubah saat re-render.');
+        $this->assertEquals($initialReviewer, $surat->reviewed_by, 'Reviewer tidak boleh berubah saat re-render.');
+        $this->assertEquals('Urus Paspor', $surat->form_data['keperluan']);
+    }
+
+    /**
+     * TEST 4 — Missing Reviewer Safety:
+     * Jika reviewed_by null, sistem tidak mencetak 'Bambang Hartono' atau nama dummy,
+     * melainkan melempar InvalidArgumentException dan redirect dengan pesan error.
+     */
+    public function test_missing_reviewer_safety_prevents_pdf_generation(): void
+    {
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'nomor_surat' => '010/RT05-RW03/SKD/IX/2026',
+            'form_data' => ['keperluan' => 'Tes Keamanan'],
+            'status' => 'DISETUJUI',
+            'reviewed_by' => null, // Simulasi data tidak lengkap
+        ]);
+
+        // 1. SuratPdfGenerator melempar exception yang jelas
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Dokumen tidak dapat diterbitkan karena data penandatangan belum tersedia.');
+        \App\Services\SuratPdfGenerator::generate($surat);
+    }
+
+    public function test_missing_reviewer_redirects_with_error_flash_in_controller(): void
+    {
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'nomor_surat' => '011/RT05-RW03/SKD/IX/2026',
+            'form_data' => ['keperluan' => 'Tes Controller Guard'],
+            'status' => 'DISETUJUI',
+            'reviewed_by' => null,
+        ]);
+
+        // 2. Controller downloadPdf memvalidasi dan redirect dengan pesan error
+        $response = $this->actingAs($this->wargaRt5)->get(route('surat.download-pdf', $surat->id));
+        $response->assertRedirect(route('surat.show', $surat->id));
+        $response->assertSessionHas('error', 'Dokumen tidak dapat diterbitkan karena data penandatangan belum tersedia.');
+    }
+
+    /**
+     * TEST 5 — Test Input:
+     * Input keperluan 'Halooo' tetap dipertahankan sebagai data input tanpa modifikasi.
+     */
+    public function test_input_keperluan_halooo_is_preserved_without_alteration(): void
+    {
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'nomor_surat' => '012/RT05-RW03/SKD/IX/2026',
+            'form_data' => [
+                'alamat_domisili' => 'Jl. Sekeloa RT 05 RW 03',
+                'keperluan' => 'Halooo',
+            ],
+            'status' => 'DISETUJUI',
+            'reviewed_by' => $this->ketuaRt5->id,
+        ]);
+
+        $pdf = \App\Services\SuratPdfGenerator::generate($surat);
+        $this->assertNotEmpty($pdf->output());
+
+        $surat->refresh();
+        $this->assertEquals('Halooo', $surat->form_data['keperluan'], 'Nilai keperluan "Halooo" tidak boleh dimodifikasi.');
+
+        // Pastikan muncul di template
+        $renderedHtml = view('surat.pdf.template', [
+            'surat' => $surat,
+            'user' => $surat->user,
+            'rt' => $surat->rt,
+            'rw' => $surat->rt->rw,
+            'klien' => $surat->rt->rw->klien,
+            'reviewer' => $surat->reviewer,
+            'jabatanPenandatangan' => 'Ketua RT 05 / RW 03',
+            'subJabatanPenandatangan' => 'Ketua RT 05',
+            'namaJenisSurat' => \App\Services\SuratPdfGenerator::getNamaJenisSurat($surat->jenis_surat),
+            'verificationCode' => 'VALIDATIONTESTCODE',
+            'tanggalSurat' => '23 September 2026',
+        ])->render();
+
+        $this->assertStringContainsString('"Halooo"', $renderedHtml);
+    }
 }

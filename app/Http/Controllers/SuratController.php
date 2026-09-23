@@ -242,6 +242,11 @@ class SuratController extends Controller
                 ->with('error', 'Dokumen PDF hanya dapat diunduh setelah permohonan resmi disetujui oleh Ketua RT.');
         }
 
+        if (!$surat->reviewer) {
+            return redirect()->route('surat.show', $surat->id)
+                ->with('error', 'Dokumen tidak dapat diterbitkan karena data penandatangan belum tersedia.');
+        }
+
         $pdf = SuratPdfGenerator::generate($surat);
         $fileName = 'Surat_' . $surat->jenis_surat . '_' . str_replace(' ', '_', $surat->user->nama) . '.pdf';
 

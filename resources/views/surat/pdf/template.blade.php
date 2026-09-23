@@ -6,7 +6,7 @@
     <title>{{ $namaJenisSurat }} - {{ $surat->nomor_surat }}</title>
     <style>
         @page {
-            margin: 2cm 2.5cm 2cm 2.5cm;
+            margin: 1.5cm 2cm;
             size: a4 portrait;
         }
         body {
@@ -46,11 +46,11 @@
             border-top: 3px solid #111827;
             border-bottom: 1px solid #111827;
             height: 3px;
-            margin: 8px 0 20px 0;
+            margin: 6px 0 14px 0;
         }
         .title-box {
             text-align: center;
-            margin-bottom: 22px;
+            margin-bottom: 14px;
         }
         .surat-title {
             font-size: 13pt;
@@ -58,7 +58,7 @@
             text-transform: uppercase;
             text-decoration: underline;
             letter-spacing: 0.8px;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
         .surat-number {
             font-size: 10pt;
@@ -66,15 +66,15 @@
         }
         .content {
             text-align: justify;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
         .table-data {
             width: 100%;
             border-collapse: collapse;
-            margin: 12px 0 16px 20px;
+            margin: 8px 0 12px 15px;
         }
         .table-data td {
-            padding: 4px 6px;
+            padding: 3px 6px;
             vertical-align: top;
             font-size: 10.5pt;
         }
@@ -92,7 +92,7 @@
         }
         .ttd-container {
             width: 100%;
-            margin-top: 35px;
+            margin-top: 20px;
         }
         .ttd-table {
             width: 100%;
@@ -106,7 +106,7 @@
         .ttd-jabatan {
             font-weight: bold;
             font-size: 10.5pt;
-            margin-bottom: 60px;
+            margin-bottom: 12px;
         }
         .ttd-nama {
             font-weight: bold;
@@ -122,13 +122,12 @@
             text-transform: uppercase;
             padding: 4px 8px;
             border-radius: 4px;
-            margin-top: 5px;
             letter-spacing: 0.5px;
         }
         .verification-footer {
-            margin-top: 40px;
+            margin-top: 20px;
             border-top: 1px dashed #9ca3af;
-            padding-top: 10px;
+            padding-top: 8px;
             font-size: 8pt;
             color: #6b7280;
         }
@@ -233,16 +232,16 @@
         Berdasarkan catatan kependudukan kami, nama tersebut di atas adalah benar warga yang bertempat tinggal dan berdomisili sah di lingkungan RT 0{{ $rt->nomor_rt ?? 5 }} RW 0{{ $rw->nomor_rw ?? 3 }} Kelurahan {{ $klien->kelurahan ?? 'Sekeloa' }}.
     </div>
 
-    <div class="content" style="margin-top: 10px;">
-        Surat keterangan pengantar ini dibuat dan diberikan kepada yang bersangkutan untuk keperluan:<br>
+    <div class="content" style="margin-top: 8px;">
+        {{ $surat->jenis_surat === 'SPKK' ? 'Surat pengantar ini' : 'Surat keterangan ini' }} dibuat dan diberikan kepada yang bersangkutan untuk keperluan:<br>
         <div style="margin: 6px 0 6px 20px; font-weight: bold; color: #111827; font-style: italic;">
             "{{ $surat->form_data['keperluan'] ?? 'Keperluan administrasi kependudukan / dinas terkait' }}"
         </div>
     </div>
 
     <!-- PARAGRAF PENUTUP -->
-    <div class="content" style="margin-top: 14px;">
-        Demikian surat keterangan pengantar ini kami terbitkan dengan sebenarnya agar dapat dipergunakan sebagaimana mestinya oleh pihak yang berkepentingan.
+    <div class="content" style="margin-top: 10px;">
+        Demikian {{ $surat->jenis_surat === 'SPKK' ? 'surat pengantar ini' : 'surat keterangan ini' }} kami terbitkan dengan sebenarnya agar dapat dipergunakan sebagaimana mestinya oleh pihak yang berkepentingan.
     </div>
 
     <!-- TANDA TANGAN -->
@@ -252,13 +251,13 @@
                 <td></td>
                 <td>
                     <div>{{ $klien->kota ?? 'Bandung' }}, {{ $tanggalSurat }}</div>
-                    <div class="ttd-jabatan">Ketua RT 0{{ $rt->nomor_rt ?? 5 }} / RW 0{{ $rw->nomor_rw ?? 3 }}</div>
+                    <div class="ttd-jabatan">{{ $jabatanPenandatangan }}</div>
                     
-                    <div class="stempel-digital">✓ TERVERIFIKASI SISTEM</div>
-                    <div style="height: 15px;"></div>
+                    <div class="stempel-digital">TERVERIFIKASI SISTEM</div>
+                    <div style="height: 12px;"></div>
                     
-                    <div class="ttd-nama">{{ $surat->reviewer?->nama ?? 'Bambang Hartono' }}</div>
-                    <div style="font-size: 8.5pt; color: #6b7280; margin-top: 2px;">Pengurus RT 0{{ $rt->nomor_rt ?? 5 }}</div>
+                    <div class="ttd-nama">{{ $surat->reviewer->nama }}</div>
+                    <div style="font-size: 8.5pt; color: #6b7280; margin-top: 2px;">{{ $subJabatanPenandatangan }}</div>
                 </td>
             </tr>
         </table>
@@ -270,8 +269,8 @@
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                     <td style="vertical-align: top;">
-                        <span class="badge-verified">DOKUMEN ELEKTRONIK SAH</span> — Diterbitkan otomatis oleh Platform <strong>Warga Digital</strong>.<br>
-                        Dokumen ini telah disetujui secara digital oleh Pengurus RT setempat dan memiliki kekuatan hukum administrasi lingkungan.
+                        <span class="badge-verified">DOKUMEN ELEKTRONIK SAH</span> — Diterbitkan otomatis melalui Platform <strong>Warga Digital</strong>.<br>
+                        Dokumen ini telah disetujui secara digital oleh Pengurus RT setempat sesuai data administrasi kependudukan yang tercatat.
                     </td>
                     <td style="text-align: right; vertical-align: top; width: 170px;">
                         Kode Validasi SHA-256:<br>
