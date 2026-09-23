@@ -40,7 +40,7 @@
     <!-- 2. QUICK ACTION 4-CARDS (Matching Figma Action Grid) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Card 1: Ajukan Surat -->
-        <a href="#surat" class="bg-white rounded-2xl p-5 border border-stone-200/90 hover:border-emerald-600/40 hover:shadow-md transition-all duration-200 group flex flex-col justify-between">
+        <a href="{{ route('surat.index') }}" class="bg-white rounded-2xl p-5 border border-stone-200/90 hover:border-emerald-600/40 hover:shadow-md transition-all duration-200 group flex flex-col justify-between">
             <div>
                 <div class="w-10 h-10 rounded-xl bg-[#131919] text-white flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -82,12 +82,26 @@
                 <!-- Group: LAYANAN -->
                 <div>
                     <span class="text-[10px] font-bold text-slate-500 tracking-wider uppercase px-3 block mb-1">Layanan</span>
-                    <a href="#surat" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                        </svg>
-                        <span>Pengajuan Surat</span>
-                    </a>
+                    <div class="space-y-1">
+                        <a href="{{ route('surat.index') }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition-all {{ request()->routeIs('surat.*') && !request()->routeIs('admin.surat.*') ? 'bg-white/10 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+                            <svg class="w-4 h-4 {{ request()->routeIs('surat.*') && !request()->routeIs('admin.surat.*') ? 'text-emerald-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span>Pengajuan Surat</span>
+                        </a>
+
+                        @if(auth()->user()->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris']))
+                        <a href="{{ route('admin.surat.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium transition-all {{ request()->routeIs('admin.surat.*') ? 'bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-4 h-4 {{ request()->routeIs('admin.surat.*') ? 'text-emerald-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                                </svg>
+                                <span>Meja Verifikasi RT</span>
+                            </div>
+                            <span class="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">Admin</span>
+                        </a>
+                        @endif
+                    </div>
                 </div>
 
                 <!-- Group: KOMUNITAS -->
