@@ -231,27 +231,223 @@
             </div>
         </div>
 
-        <!-- 3. UNGGAH DOKUMEN PENDUKUNG (OPSIONAL / SESUAI KEBUTUHAN) -->
-        <div class="bg-white rounded-3xl p-6 border border-stone-200/90 shadow-2xs space-y-4">
+        <!-- 3. DOKUMEN LAMPIRAN -->
+        <div class="bg-white rounded-3xl p-6 border border-stone-200/90 shadow-2xs space-y-6">
             <div class="flex items-center justify-between border-b border-stone-100 pb-3">
                 <h2 class="text-sm font-bold text-stone-900 flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
-                    <span>3. Dokumen Lampiran Pendukung (Opsional)</span>
+                    <span>3. Dokumen Lampiran</span>
                 </h2>
-                <span class="text-[11px] text-stone-400">PDF, JPG, PNG (Maks 5 MB)</span>
+                <span class="text-[11px] text-stone-400">PDF, JPG, PNG (Maks 5 MB per file)</span>
             </div>
 
-            <div class="space-y-2 text-xs">
-                <label class="font-medium text-stone-700 block">Pilih Berkas (Foto KTP / KK / Surat Keterangan Lahir / Surat Medis):</label>
-                <div class="flex items-center gap-3">
+            <!-- Catatan Tambahan (Opsional) -->
+            <div class="space-y-1.5 text-xs">
+                <label class="font-bold text-stone-800 flex items-center justify-between">
+                    <span>Catatan Tambahan untuk Pengurus RT</span>
+                    <span class="text-[11px] text-stone-400 font-normal">Opsional</span>
+                </label>
+                <textarea 
+                    name="catatan_pemohon" 
+                    rows="2" 
+                    placeholder="Tuliskan catatan atau pesan tambahan jika ada (misal: 'Mohon dibantu segera untuk keperluan interview kerja besok pagi')."
+                    class="w-full px-3.5 py-2.5 bg-white border border-stone-300 rounded-xl text-xs text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 transition-all"
+                >{{ old('catatan_pemohon') }}</textarea>
+            </div>
+
+            <!-- Dokumen Wajib Dinamis Sesuai Jenis Surat -->
+            <div class="border-t border-stone-100 pt-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        Dokumen Wajib ({{ $jenis }})
+                    </span>
+                    <span class="text-[11px] text-red-600 font-semibold">* Wajib Diunggah</span>
+                </div>
+                <p class="text-[11px] text-stone-500">Anda dapat memilih lebih dari satu file per slot jika diperlukan (misal foto bagian depan & belakang).</p>
+
+                @if($jenis === 'SKU')
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                        <label class="font-bold text-stone-800 block">
+                            Foto Tempat Usaha <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-[11px] text-stone-500">Foto plang toko, etalase, atau tempat usaha.</p>
+                        <input 
+                            type="file" 
+                            name="dokumen_usaha[]" 
+                            multiple 
+                            required 
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
+                        >
+                    </div>
+
+                    <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                        <label class="font-bold text-stone-800 block">
+                            KTP Pemilik Usaha <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-[11px] text-stone-500">Foto / scan KTP asli pemohon.</p>
+                        <input 
+                            type="file" 
+                            name="dokumen_ktp[]" 
+                            multiple 
+                            required 
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
+                        >
+                    </div>
+                </div>
+
+                @elseif($jenis === 'SKTM')
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                        <label class="font-bold text-stone-800 block">
+                            Kartu Keluarga (KK) <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-[11px] text-stone-500">Foto / scan Kartu Keluarga asli.</p>
+                        <input 
+                            type="file" 
+                            name="dokumen_kk[]" 
+                            multiple 
+                            required 
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
+                        >
+                    </div>
+
+                    <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                        <label class="font-bold text-stone-800 block">
+                            Slip Gaji / Surat Pernyataan Tidak Mampu <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-[11px] text-stone-500">Slip penghasilan atau surat pernyataan bermeterai.</p>
+                        <input 
+                            type="file" 
+                            name="dokumen_slip_gaji[]" 
+                            multiple 
+                            required 
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
+                        >
+                    </div>
+                </div>
+
+                @elseif($jenis === 'SPKK')
+                <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                    <label class="font-bold text-stone-800 block">
+                        KK Lama / Buku Nikah <span class="text-red-500">*</span>
+                    </label>
+                    <p class="text-[11px] text-stone-500">Lampirkan foto Kartu Keluarga lama atau Buku Nikah resmi.</p>
                     <input 
                         type="file" 
-                        name="dokumen" 
-                        accept=".pdf,.jpg,.jpeg,.png" 
-                        class="block w-full text-xs text-stone-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-200 rounded-xl p-1"
+                        name="dokumen_kk_nikah[]" 
+                        multiple 
+                        required 
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
                     >
                 </div>
-                <p class="text-[11px] text-stone-400">Melampirkan dokumen pendukung yang jelas akan mempercepat proses persetujuan oleh Ketua RT.</p>
+
+                @elseif($jenis === 'SKL')
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                        <label class="font-bold text-stone-800 block">
+                            Surat Lahir dari RS/Bidan <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-[11px] text-stone-500">Surat keterangan lahir dari rumah sakit atau bidan.</p>
+                        <input 
+                            type="file" 
+                            name="dokumen_surat_lahir[]" 
+                            multiple 
+                            required 
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
+                        >
+                    </div>
+
+                    <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                        <label class="font-bold text-stone-800 block">
+                            KTP Orang Tua <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-[11px] text-stone-500">Foto KTP ayah dan/atau ibu kandung bayi.</p>
+                        <input 
+                            type="file" 
+                            name="dokumen_ktp_ortu[]" 
+                            multiple 
+                            required 
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
+                        >
+                    </div>
+                </div>
+
+                @elseif($jenis === 'SKKm')
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                        <label class="font-bold text-stone-800 block">
+                            Surat Medis / Keterangan Dokter <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-[11px] text-stone-500">Surat keterangan kematian dari dokter atau rumah sakit.</p>
+                        <input 
+                            type="file" 
+                            name="dokumen_surat_medis[]" 
+                            multiple 
+                            required 
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
+                        >
+                    </div>
+
+                    <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                        <label class="font-bold text-stone-800 block">
+                            KTP Almarhum <span class="text-red-500">*</span>
+                        </label>
+                        <p class="text-[11px] text-stone-500">Foto atau fotokopi KTP almarhum/almarhumah.</p>
+                        <input 
+                            type="file" 
+                            name="dokumen_ktp_almarhum[]" 
+                            multiple 
+                            required 
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
+                        >
+                    </div>
+                </div>
+
+                @else <!-- SKD -->
+                <div class="space-y-1.5 text-xs p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                    <label class="font-bold text-stone-800 block">
+                        KTP Asli / Kartu Keluarga <span class="text-red-500">*</span>
+                    </label>
+                    <p class="text-[11px] text-stone-500">Lampirkan foto KTP pemohon atau Kartu Keluarga yang berlaku.</p>
+                    <input 
+                        type="file" 
+                        name="dokumen_ktp_kk[]" 
+                        multiple 
+                        required 
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-800 hover:file:bg-emerald-100 cursor-pointer border border-stone-300 rounded-xl p-1 bg-white"
+                    >
+                </div>
+                @endif
+            </div>
+
+            <!-- Lampiran Pendukung Lain (Opsional) -->
+            <div class="border-t border-stone-100 pt-4 space-y-2 text-xs">
+                <label class="font-bold text-stone-800 flex items-center justify-between">
+                    <span>Lampiran Pendukung Lain</span>
+                    <span class="text-[11px] text-stone-400 font-normal">Opsional (Bisa lebih dari 1 file)</span>
+                </label>
+                <p class="text-[11px] text-stone-500">Dokumen pendukung tambahan di luar dokumen wajib di atas (misal: surat pengantar lama, bukti lunas PBB, dll).</p>
+                <input 
+                    type="file" 
+                    name="dokumen_pendukung_lain[]" 
+                    multiple 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    class="block w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-stone-100 file:text-stone-800 hover:file:bg-stone-200 cursor-pointer border border-stone-200 rounded-xl p-1 bg-white"
+                >
             </div>
         </div>
 

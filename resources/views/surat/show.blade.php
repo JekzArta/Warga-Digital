@@ -355,7 +355,7 @@
             </div>
 
             @foreach($surat->form_data as $key => $val)
-                @if(!in_array($key, ['keperluan', 'dokumen_url', 'dokumen_nama']) && !empty($val))
+                @if(!in_array($key, ['keperluan', 'dokumen_url', 'dokumen_nama', 'lampiran', 'catatan_pemohon']) && !empty($val))
                 <div class="p-3 bg-stone-50 rounded-xl">
                     <span class="text-stone-500 block text-[11px] uppercase">{{ str_replace('_', ' ', $key) }}:</span>
                     <span class="font-semibold text-stone-800 mt-0.5 block">{{ is_array($val) ? json_encode($val) : $val }}</span>
@@ -364,8 +364,59 @@
             @endforeach
         </div>
 
-        <!-- Berkas Lampiran Pendukung -->
-        @if(!empty($surat->form_data['dokumen_url']))
+        <!-- Catatan Tambahan Pemohon jika ada -->
+        @if(!empty($surat->form_data['catatan_pemohon']))
+        <div class="mt-4 p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-xs space-y-1">
+            <span class="font-bold text-amber-900 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                </svg>
+                Catatan Tambahan dari Pemohon:
+            </span>
+            <p class="text-stone-700 italic pl-5.5">"{{ $surat->form_data['catatan_pemohon'] }}"</p>
+        </div>
+        @endif
+
+        <!-- Berkas Lampiran Pendukung Terstruktur -->
+        @if(!empty($surat->form_data['lampiran']))
+        <div class="mt-4 pt-4 border-t border-stone-100 space-y-3">
+            <span class="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                </svg>
+                Dokumen Lampiran Persyaratan:
+            </span>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                @foreach($surat->form_data['lampiran'] as $slotKey => $files)
+                    @foreach($files as $idx => $file)
+                    <div class="p-3 bg-stone-50 border border-stone-200/80 rounded-2xl flex items-center justify-between gap-3">
+                        <div class="space-y-0.5 truncate">
+                            <span class="inline-block px-2 py-0.5 rounded-md bg-stone-200 text-stone-700 font-bold text-[10px] uppercase">
+                                {{ $file['label'] ?? 'Dokumen' }}
+                            </span>
+                            <p class="font-semibold text-stone-800 text-xs truncate mt-1" title="{{ $file['nama'] }}">
+                                {{ $file['nama'] }}
+                            </p>
+                            @if(!empty($file['size']))
+                            <span class="text-[10px] text-stone-400 font-mono">{{ round($file['size'] / 1024) }} KB</span>
+                            @endif
+                        </div>
+                        <a 
+                            href="{{ asset('storage/' . $file['path']) }}" 
+                            target="_blank" 
+                            class="px-3 py-1.5 bg-white border border-stone-200 hover:bg-emerald-50 hover:border-emerald-300 text-emerald-800 font-bold rounded-xl text-xs transition-all shrink-0 flex items-center gap-1 shadow-2xs"
+                        >
+                            <span>Buka</span>
+                            <span>&rarr;</span>
+                        </a>
+                    </div>
+                    @endforeach
+                @endforeach
+            </div>
+        </div>
+        @elseif(!empty($surat->form_data['dokumen_url']))
+        <!-- Fallback Legacy Dokumen Tunggal -->
         <div class="mt-4 pt-4 border-t border-stone-100 flex items-center justify-between text-xs">
             <div class="flex items-center gap-2">
                 <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

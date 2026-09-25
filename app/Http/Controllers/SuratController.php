@@ -125,26 +125,39 @@ class SuratController extends Controller
         $rules = [
             'jenis_surat' => 'required|in:SKD,SKTM,SKU,SPKK,SKL,SKKm',
             'keperluan' => 'required|string|max:500',
-            'dokumen' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'catatan_pemohon' => 'nullable|string|max:1000',
+            'dokumen_pendukung_lain' => 'nullable|array',
+            'dokumen_pendukung_lain.*' => 'file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'dokumen' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120', // legacy fallback
         ];
 
-        // Validasi field spesifik per jenis surat
+        // Validasi field spesifik dan slot dokumen wajib per jenis surat
         switch ($request->jenis_surat) {
             case 'SKU':
                 $rules['nama_usaha'] = 'required|string|max:200';
                 $rules['bidang_usaha'] = 'required|string|max:150';
                 $rules['alamat_usaha'] = 'required|string|max:300';
                 $rules['lama_usaha'] = 'nullable|string|max:50';
+                $rules['dokumen_usaha'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_usaha.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
+                $rules['dokumen_ktp'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_ktp.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
                 break;
             case 'SKTM':
                 $rules['pekerjaan'] = 'required|string|max:100';
                 $rules['penghasilan_per_bulan'] = 'required|string|max:100';
                 $rules['jumlah_tanggungan'] = 'required|integer|min:0|max:20';
+                $rules['dokumen_kk'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_kk.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
+                $rules['dokumen_slip_gaji'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_slip_gaji.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
                 break;
             case 'SPKK':
                 $rules['alasan_permohonan'] = 'required|string|max:150';
                 $rules['nama_kepala_keluarga'] = 'required|string|max:150';
                 $rules['jumlah_anggota'] = 'required|integer|min:1|max:20';
+                $rules['dokumen_kk_nikah'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_kk_nikah.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
                 break;
             case 'SKL':
                 $rules['nama_anak'] = 'required|string|max:150';
@@ -152,31 +165,111 @@ class SuratController extends Controller
                 $rules['tanggal_lahir_anak'] = 'required|date';
                 $rules['nama_ibu'] = 'required|string|max:150';
                 $rules['nama_ayah'] = 'required|string|max:150';
+                $rules['dokumen_surat_lahir'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_surat_lahir.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
+                $rules['dokumen_ktp_ortu'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_ktp_ortu.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
                 break;
             case 'SKKm':
                 $rules['nama_almarhum'] = 'required|string|max:150';
                 $rules['tanggal_meninggal'] = 'required|date';
                 $rules['tempat_meninggal'] = 'required|string|max:150';
                 $rules['penyebab'] = 'required|string|max:200';
+                $rules['dokumen_surat_medis'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_surat_medis.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
+                $rules['dokumen_ktp_almarhum'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_ktp_almarhum.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
                 break;
             case 'SKD':
             default:
                 $rules['alamat_domisili'] = 'required|string|max:300';
                 $rules['lama_tinggal'] = 'nullable|string|max:50';
+                $rules['dokumen_ktp_kk'] = 'required_without:dokumen|array|min:1';
+                $rules['dokumen_ktp_kk.*'] = 'file|mimes:pdf,jpg,jpeg,png|max:5120';
                 break;
         }
 
-        $validated = $request->validate($rules);
+        $messages = [
+            'dokumen_ktp_kk.required_without' => 'Dokumen KTP Asli / Kartu Keluarga wajib diunggah.',
+            'dokumen_usaha.required_without' => 'Foto Tempat Usaha wajib diunggah.',
+            'dokumen_ktp.required_without' => 'KTP wajib diunggah.',
+            'dokumen_kk.required_without' => 'Kartu Keluarga wajib diunggah.',
+            'dokumen_slip_gaji.required_without' => 'Slip Gaji / Surat Pernyataan Tidak Mampu wajib diunggah.',
+            'dokumen_kk_nikah.required_without' => 'KK Lama / Buku Nikah wajib diunggah.',
+            'dokumen_surat_lahir.required_without' => 'Surat Lahir dari RS/Bidan wajib diunggah.',
+            'dokumen_ktp_ortu.required_without' => 'KTP Orang Tua wajib diunggah.',
+            'dokumen_surat_medis.required_without' => 'Surat Medis / Keterangan Dokter wajib diunggah.',
+            'dokumen_ktp_almarhum.required_without' => 'KTP Almarhum wajib diunggah.',
+            '*.mimes' => 'Format berkas lampiran harus berupa PDF, JPG, JPEG, atau PNG.',
+            '*.max' => 'Ukuran setiap berkas maksimal 5 MB.',
+        ];
+
+        $validated = $request->validate($rules, $messages);
 
         // Kumpulkan data dinamis untuk disimpan sebagai JSON form_data
         $formData = $validated;
+
+        // Daftar label slot untuk identifikasi dokumen saat review
+        $slotLabels = [
+            'dokumen_ktp_kk' => 'KTP Asli / Kartu Keluarga',
+            'dokumen_usaha' => 'Foto Tempat Usaha',
+            'dokumen_ktp' => 'KTP',
+            'dokumen_kk' => 'Kartu Keluarga',
+            'dokumen_slip_gaji' => 'Slip Gaji / Surat Pernyataan Tidak Mampu',
+            'dokumen_kk_nikah' => 'KK Lama / Buku Nikah',
+            'dokumen_surat_lahir' => 'Surat Lahir dari RS/Bidan',
+            'dokumen_ktp_ortu' => 'KTP Orang Tua',
+            'dokumen_surat_medis' => 'Surat Medis / Keterangan Dokter',
+            'dokumen_ktp_almarhum' => 'KTP Almarhum',
+            'dokumen_pendukung_lain' => 'Lampiran Pendukung Lain',
+        ];
+
+        // Hapus array file mentah dari formData dasar
+        foreach (array_keys($slotLabels) as $slotKey) {
+            unset($formData[$slotKey]);
+        }
         unset($formData['jenis_surat'], $formData['dokumen']);
 
-        // Upload berkas pendukung jika ada
+        // Upload dan simpan berkas terstruktur per slot kategori
+        $lampiran = [];
+        foreach ($slotLabels as $slotKey => $slotLabel) {
+            if ($request->hasFile($slotKey)) {
+                $files = is_array($request->file($slotKey)) ? $request->file($slotKey) : [$request->file($slotKey)];
+                foreach ($files as $file) {
+                    $path = $file->store('surat_dokumen', 'public');
+                    $lampiran[$slotKey][] = [
+                        'path' => $path,
+                        'nama' => $file->getClientOriginalName(),
+                        'label' => $slotLabel,
+                        'size' => $file->getSize(),
+                    ];
+                }
+            }
+        }
+
+        // Dukungan kompatibilitas berkas tunggal legacy jika ada
         if ($request->hasFile('dokumen')) {
             $path = $request->file('dokumen')->store('surat_dokumen', 'public');
-            $formData['dokumen_url'] = $path;
-            $formData['dokumen_nama'] = $request->file('dokumen')->getClientOriginalName();
+            $lampiran['dokumen_legacy'][] = [
+                'path' => $path,
+                'nama' => $request->file('dokumen')->getClientOriginalName(),
+                'label' => 'Dokumen Pendukung',
+                'size' => $request->file('dokumen')->getSize(),
+            ];
+        }
+
+        if (!empty($lampiran)) {
+            $formData['lampiran'] = $lampiran;
+            // Shortcut dokumen_url & dokumen_nama untuk backward compatibility
+            $firstSlot = array_key_first($lampiran);
+            if (!empty($lampiran[$firstSlot][0])) {
+                $formData['dokumen_url'] = $lampiran[$firstSlot][0]['path'];
+                $formData['dokumen_nama'] = $lampiran[$firstSlot][0]['nama'];
+            }
+        }
+
+        if ($request->filled('catatan_pemohon')) {
+            $formData['catatan_pemohon'] = $request->catatan_pemohon;
         }
 
         $surat = SuratPengajuan::create([

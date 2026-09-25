@@ -80,6 +80,11 @@ class SuratPdfGenerator
         // Kode hash verifikasi dokumen untuk keaslian surat
         $verificationCode = strtoupper(substr(hash('sha256', ($surat->nomor_surat ?? 'WD') . ($surat->id) . ($surat->created_at)), 0, 16));
 
+        // Alamat pemohon: prioritaskan alamat domisili yang diinput warga pada surat (misal SKD), fallback ke profil user
+        $alamatCetak = !empty($surat->form_data['alamat_domisili'])
+            ? $surat->form_data['alamat_domisili']
+            : ($user->alamat ?? ('RT 0' . ($rt->nomor_rt ?? 5) . ' / RW 0' . ($rw->nomor_rw ?? 3)));
+
         $data = [
             'surat' => $surat,
             'user' => $user,
@@ -92,6 +97,7 @@ class SuratPdfGenerator
             'namaJenisSurat' => self::getNamaJenisSurat($surat->jenis_surat),
             'verificationCode' => $verificationCode,
             'tanggalSurat' => Carbon::parse($surat->updated_at)->translatedFormat('d F Y'),
+            'alamatCetak' => $alamatCetak,
         ];
 
         $pdf = Pdf::loadView('surat.pdf.template', $data);

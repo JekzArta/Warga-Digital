@@ -71,11 +71,14 @@ class SuratTest extends TestCase
 
     public function test_warga_can_submit_surat_application(): void
     {
+        $fileKtp = \Illuminate\Http\UploadedFile::fake()->create('ktp_warga.jpg', 200, 'image/jpeg');
+
         $response = $this->actingAs($this->wargaRt5)->post(route('surat.store'), [
             'jenis_surat' => 'SKD',
             'alamat_domisili' => 'Jl. Sekeloa No. 15 RT 05 RW 03',
             'lama_tinggal' => '4 Tahun',
             'keperluan' => 'Persyaratan Pembukaan Rekening Bank BCA',
+            'dokumen_ktp_kk' => [$fileKtp],
         ]);
 
         $surat = SuratPengajuan::where('user_id', $this->wargaRt5->id)
@@ -87,6 +90,7 @@ class SuratTest extends TestCase
         $this->assertEquals('MENUNGGU', $surat->status);
         $this->assertEquals($this->rt5->id, $surat->rt_id);
         $this->assertEquals('Persyaratan Pembukaan Rekening Bank BCA', $surat->form_data['keperluan']);
+        $this->assertNotEmpty($surat->form_data['lampiran']['dokumen_ktp_kk']);
 
         $response->assertRedirect(route('surat.show', $surat->id));
     }
@@ -553,5 +557,121 @@ class SuratTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('"Halooo"', $renderedHtml);
+    }
+
+    /**
+     * Uji Perbaikan Bug 1: PDF SKD memakai alamat domisili yang diinput warga pada form_data,
+     * bukan alamat lama pada profil user.
+     */
+    public function test_skd_pdf_renders_alamat_domisili_from_form_data(): void
+    {
+        // Alamat KTP profil adalah $this->wargaRt5->alamat
+        $alamatDomisiliBaru = 'Jl. Tubagus Ismail VII No. 42B RT 05 RW 03';
+
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'nomor_surat' => '020/RT05-RW03/SKD/IX/2026',
+            'form_data' => [
+                'alamat_domisili' => $alamatDomisiliBaru,
+                'lama_tinggal' => '2 Tahun',
+                'keperluan' => 'Pendaftaran Domisili Usaha',
+            ],
+            'status' => 'DISETUJUI',
+            'reviewed_by' => $this->ketuaRt5->id,
+        ]);
+
+        $pdf = \App\Services\SuratPdfGenerator::generate($surat);
+        $this->assertNotEmpty($pdf->output());
+
+        $renderedHtml = view('surat.pdf.template', [
+            'surat' => $surat,
+            'user' => $surat->user,
+            'rt' => $surat->rt,
+            'rw' => $surat->rt->rw,
+            'klien' => $surat->rt->rw->klien,
+            'reviewer' => $surat->reviewer,
+            'jabatanPenandatangan' => 'Ketua RT 05 / RW 03',
+            'subJabatanPenandatangan' => 'Ketua RT 05',
+            'namaJenisSurat' => \App\Services\SuratPdfGenerator::getNamaJenisSurat($surat->jenis_surat),
+            'verificationCode' => 'DOMISILIVALIDATION',
+            'tanggalSurat' => '25 September 2026',
+            'alamatCetak' => $alamatDomisiliBaru,
+        ])->render();
+
+        $this->assertStringContainsString($alamatDomisiliBaru, $renderedHtml);
+    }
+
+    /**
+     * Uji Redesain Section 3: Warga bisa upload multiple files per slot,
+     * mengisi catatan pemohon, dan dokumen pendukung lain.
+     */
+    public function test_warga_can_submit_surat_with_multiple_files_per_slot_and_catatan(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $fotoUsaha1 = \Illuminate\Http\UploadedFile::fake()->create('toko_depan.jpg', 300, 'image/jpeg');
+        $fotoUsaha2 = \Illuminate\Http\UploadedFile::fake()->create('toko_dalam.jpg', 350, 'image/jpeg');
+        $ktpPemilik = \Illuminate\Http\UploadedFile::fake()->create('ktp_asli.jpg', 250, 'image/jpeg');
+        $dokTambahan = \Illuminate\Http\UploadedFile::fake()->create('surat_sewa.pdf', 500, 'application/pdf');
+
+        $response = $this->actingAs($this->wargaRt5)->post(route('surat.store'), [
+            'jenis_surat' => 'SKU',
+            'nama_usaha' => 'Laundry Express Bersih',
+            'bidang_usaha' => 'Jasa Cuci Pakaian',
+            'alamat_usaha' => 'Jl. Sekeloa No. 20 RT 05',
+            'lama_usaha' => '6 Bulan',
+            'keperluan' => 'Pencairan KUR Bank Mandiri',
+            'catatan_pemohon' => 'Tolong dibantu segera ya Pak RT, berkas dibutuhkan besok siang.',
+            'dokumen_usaha' => [$fotoUsaha1, $fotoUsaha2],
+            'dokumen_ktp' => [$ktpPemilik],
+            'dokumen_pendukung_lain' => [$dokTambahan],
+        ]);
+
+        $surat = SuratPengajuan::where('user_id', $this->wargaRt5->id)
+            ->where('jenis_surat', 'SKU')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($surat);
+        $this->assertEquals('MENUNGGU', $surat->status);
+        $this->assertEquals('Tolong dibantu segera ya Pak RT, berkas dibutuhkan besok siang.', $surat->form_data['catatan_pemohon']);
+
+        // Verifikasi struktur lampiran terpisah per kategori slot
+        $lampiran = $surat->form_data['lampiran'];
+        $this->assertCount(2, $lampiran['dokumen_usaha'], 'Slot dokumen usaha harus berisi 2 file.');
+        $this->assertCount(1, $lampiran['dokumen_ktp'], 'Slot dokumen KTP harus berisi 1 file.');
+        $this->assertCount(1, $lampiran['dokumen_pendukung_lain'], 'Slot lampiran pendukung lain harus berisi 1 file.');
+
+        $this->assertEquals('Foto Tempat Usaha', $lampiran['dokumen_usaha'][0]['label']);
+        $this->assertEquals('KTP', $lampiran['dokumen_ktp'][0]['label']);
+        $this->assertEquals('Lampiran Pendukung Lain', $lampiran['dokumen_pendukung_lain'][0]['label']);
+
+        // Pastikan halaman show menampilkan berkas-berkas tersebut
+        $resShow = $this->actingAs($this->wargaRt5)->get(route('surat.show', $surat->id));
+        $resShow->assertStatus(200);
+        $resShow->assertSee('Tolong dibantu segera ya Pak RT');
+        $resShow->assertSee('toko_depan.jpg');
+        $resShow->assertSee('toko_dalam.jpg');
+        $resShow->assertSee('ktp_asli.jpg');
+        $resShow->assertSee('surat_sewa.pdf');
+    }
+
+    /**
+     * Uji Validasi Section 3: Dokumen wajib tidak boleh kosong jika tidak ada lampiran.
+     */
+    public function test_validation_requires_mandatory_documents_per_letter_type(): void
+    {
+        $response = $this->actingAs($this->wargaRt5)->post(route('surat.store'), [
+            'jenis_surat' => 'SKU',
+            'nama_usaha' => 'Warung Kopi',
+            'bidang_usaha' => 'Kuliner',
+            'alamat_usaha' => 'Jl. Sekeloa RT 05',
+            'keperluan' => 'Izin Lingkungan',
+            // sengaja tidak melampirkan dokumen_usaha dan dokumen_ktp
+        ]);
+
+        $response->assertSessionHasErrors(['dokumen_usaha', 'dokumen_ktp']);
     }
 }

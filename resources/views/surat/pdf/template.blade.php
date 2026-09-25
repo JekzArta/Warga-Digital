@@ -195,7 +195,7 @@
         <tr>
             <td class="label">Alamat KTP / Domisili</td>
             <td class="colon">:</td>
-            <td class="value">{{ $user->alamat ?? ('RT 0' . ($rt->nomor_rt ?? 5) . ' / RW 0' . ($rw->nomor_rw ?? 3)) }}</td>
+            <td class="value">{{ $alamatCetak ?? (!empty($surat->form_data['alamat_domisili']) ? $surat->form_data['alamat_domisili'] : ($user->alamat ?? ('RT 0' . ($rt->nomor_rt ?? 5) . ' / RW 0' . ($rw->nomor_rw ?? 3)))) }}</td>
         </tr>
         @if(!empty($surat->form_data['pekerjaan']))
         <tr>
