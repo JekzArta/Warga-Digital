@@ -229,6 +229,20 @@
                     class="w-full px-3.5 py-2.5 bg-white border border-stone-300 rounded-xl text-xs text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 transition-all"
                 >{{ old('keperluan') }}</textarea>
             </div>
+
+            <!-- Catatan Tambahan Pemohon (Opsional) -->
+            <div class="space-y-1 pt-2">
+                <label class="font-bold text-stone-800 text-xs flex items-center justify-between">
+                    <span>Catatan Tambahan untuk Pengurus RT</span>
+                    <span class="text-[11px] text-stone-400 font-normal">Opsional</span>
+                </label>
+                <textarea 
+                    name="catatan_pemohon" 
+                    rows="2" 
+                    placeholder="Tuliskan catatan atau pesan tambahan jika ada (misal: 'Mohon dibantu segera untuk keperluan interview kerja besok pagi')."
+                    class="w-full px-3.5 py-2.5 bg-white border border-stone-300 rounded-xl text-xs text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 transition-all"
+                >{{ old('catatan_pemohon') }}</textarea>
+            </div>
         </div>
 
         <!-- 3. DOKUMEN LAMPIRAN -->
@@ -241,22 +255,8 @@
                 <span class="text-[11px] text-stone-400">PDF, JPG, PNG (Maks 5 MB per file)</span>
             </div>
 
-            <!-- Catatan Tambahan (Opsional) -->
-            <div class="space-y-1.5 text-xs">
-                <label class="font-bold text-stone-800 flex items-center justify-between">
-                    <span>Catatan Tambahan untuk Pengurus RT</span>
-                    <span class="text-[11px] text-stone-400 font-normal">Opsional</span>
-                </label>
-                <textarea 
-                    name="catatan_pemohon" 
-                    rows="2" 
-                    placeholder="Tuliskan catatan atau pesan tambahan jika ada (misal: 'Mohon dibantu segera untuk keperluan interview kerja besok pagi')."
-                    class="w-full px-3.5 py-2.5 bg-white border border-stone-300 rounded-xl text-xs text-stone-900 placeholder-stone-400 focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600 transition-all"
-                >{{ old('catatan_pemohon') }}</textarea>
-            </div>
-
             <!-- Dokumen Wajib Dinamis Sesuai Jenis Surat -->
-            <div class="border-t border-stone-100 pt-4 space-y-4">
+            <div class="space-y-4">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
                         <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

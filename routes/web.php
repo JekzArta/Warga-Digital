@@ -4,12 +4,19 @@ use App\Http\Controllers\Auth\FirstTimePasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SuratController;
+use App\Http\Controllers\VerifikasiSuratController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 // Redirect root ke dashboard jika login, atau ke login page jika belum
 Route::get('/', function () {
     return Auth::check() ? redirect()->route('dashboard') : redirect()->route('login');
+});
+
+// Verifikasi Publik Dokumen Resmi (Bisa diakses pihak ketiga tanpa login, rate-limited 10 req/menit/IP)
+Route::middleware('throttle:10,1')->group(function () {
+    Route::get('/verifikasi', [VerifikasiSuratController::class, 'show'])->name('verifikasi.index');
+    Route::get('/verifikasi/{kode}', [VerifikasiSuratController::class, 'show'])->name('verifikasi.detail');
 });
 
 // Otentikasi Publik / Guest

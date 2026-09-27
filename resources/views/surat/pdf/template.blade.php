@@ -90,9 +90,13 @@
             font-weight: 500;
             color: #111827;
         }
+        tr {
+            page-break-inside: avoid;
+        }
         .ttd-container {
             width: 100%;
             margin-top: 20px;
+            page-break-inside: avoid;
         }
         .ttd-table {
             width: 100%;
@@ -106,7 +110,7 @@
         .ttd-jabatan {
             font-weight: bold;
             font-size: 10.5pt;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
         .ttd-nama {
             font-weight: bold;
@@ -124,12 +128,20 @@
             border-radius: 4px;
             letter-spacing: 0.5px;
         }
+        .stempel-note {
+            font-size: 7pt;
+            color: #4b5563;
+            font-style: italic;
+            margin-top: 4px;
+            line-height: 1.2;
+        }
         .verification-footer {
             margin-top: 20px;
             border-top: 1px dashed #9ca3af;
             padding-top: 8px;
             font-size: 8pt;
             color: #6b7280;
+            page-break-inside: avoid;
         }
         .verification-box {
             background-color: #f9fafb;
@@ -165,86 +177,21 @@
         <div class="surat-number">Nomor: <strong>{{ $surat->nomor_surat ?? '—' }}</strong></div>
     </div>
 
-    <!-- PARAGRAF PEMBUKA -->
-    <div class="content">
-        Yang bertanda tangan di bawah ini, Pengurus Rukun Tetangga 0{{ $rt->nomor_rt ?? 5 }} / Rukun Warga 0{{ $rw->nomor_rw ?? 3 }} Kelurahan {{ $klien->kelurahan ?? 'Sekeloa' }}, Kecamatan {{ $klien->kecamatan ?? 'Coblong' }}, Kota {{ $klien->kota ?? 'Bandung' }}, dengan ini menerangkan dengan sebenarnya bahwa:
-    </div>
+    @php
+        $alamatCetak = $alamatCetak ?? (!empty($surat->form_data['alamat_domisili']) ? $surat->form_data['alamat_domisili'] : ($user->alamat ?? ('RT 0' . ($rt->nomor_rt ?? 5) . ' / RW 0' . ($rw->nomor_rw ?? 3))));
+    @endphp
 
-    <!-- DATA PEMOHON -->
-    <table class="table-data">
-        <tr>
-            <td class="label">Nama Lengkap</td>
-            <td class="colon">:</td>
-            <td class="value">{{ strtoupper($user->nama) }}</td>
-        </tr>
-        <tr>
-            <td class="label">Nomor Induk Kependudukan (NIK)</td>
-            <td class="colon">:</td>
-            <td class="value">{{ $user->nik }}</td>
-        </tr>
-        <tr>
-            <td class="label">Jenis Kelamin</td>
-            <td class="colon">:</td>
-            <td class="value">{{ $user->jenis_kelamin === 'L' ? 'Laki-Laki' : 'Perempuan' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Tempat / Tanggal Lahir</td>
-            <td class="colon">:</td>
-            <td class="value">{{ $klien->kota ?? 'Bandung' }}, {{ $user->tanggal_lahir ? $user->tanggal_lahir->translatedFormat('d F Y') : '—' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Alamat KTP / Domisili</td>
-            <td class="colon">:</td>
-            <td class="value">{{ $alamatCetak ?? (!empty($surat->form_data['alamat_domisili']) ? $surat->form_data['alamat_domisili'] : ($user->alamat ?? ('RT 0' . ($rt->nomor_rt ?? 5) . ' / RW 0' . ($rw->nomor_rw ?? 3)))) }}</td>
-        </tr>
-        @if(!empty($surat->form_data['pekerjaan']))
-        <tr>
-            <td class="label">Pekerjaan</td>
-            <td class="colon">:</td>
-            <td class="value">{{ $surat->form_data['pekerjaan'] }}</td>
-        </tr>
-        @endif
-        @if(!empty($surat->form_data['nama_usaha']))
-        <tr>
-            <td class="label">Nama Usaha</td>
-            <td class="colon">:</td>
-            <td class="value">{{ $surat->form_data['nama_usaha'] }}</td>
-        </tr>
-        @endif
-        @if(!empty($surat->form_data['bidang_usaha']))
-        <tr>
-            <td class="label">Bidang Usaha</td>
-            <td class="colon">:</td>
-            <td class="value">{{ $surat->form_data['bidang_usaha'] }}</td>
-        </tr>
-        @endif
-        @if(!empty($surat->form_data['alamat_usaha']))
-        <tr>
-            <td class="label">Alamat Usaha</td>
-            <td class="colon">:</td>
-            <td class="value">{{ $surat->form_data['alamat_usaha'] }}</td>
-        </tr>
-        @endif
-    </table>
+    <!-- KONTEN SPESIFIK JENIS SURAT (PARTIALS) -->
+    @include('surat.pdf.partials.' . strtolower($surat->jenis_surat), [
+        'surat' => $surat,
+        'user' => $user,
+        'rt' => $rt,
+        'rw' => $rw,
+        'klien' => $klien,
+        'alamatCetak' => $alamatCetak,
+    ])
 
-    <!-- KETERANGAN & KEPERLUAN -->
-    <div class="content">
-        Berdasarkan catatan kependudukan kami, nama tersebut di atas adalah benar warga yang bertempat tinggal dan berdomisili sah di lingkungan RT 0{{ $rt->nomor_rt ?? 5 }} RW 0{{ $rw->nomor_rw ?? 3 }} Kelurahan {{ $klien->kelurahan ?? 'Sekeloa' }}.
-    </div>
-
-    <div class="content" style="margin-top: 8px;">
-        {{ $surat->jenis_surat === 'SPKK' ? 'Surat pengantar ini' : 'Surat keterangan ini' }} dibuat dan diberikan kepada yang bersangkutan untuk keperluan:<br>
-        <div style="margin: 6px 0 6px 20px; font-weight: bold; color: #111827; font-style: italic;">
-            "{{ $surat->form_data['keperluan'] ?? 'Keperluan administrasi kependudukan / dinas terkait' }}"
-        </div>
-    </div>
-
-    <!-- PARAGRAF PENUTUP -->
-    <div class="content" style="margin-top: 10px;">
-        Demikian {{ $surat->jenis_surat === 'SPKK' ? 'surat pengantar ini' : 'surat keterangan ini' }} kami terbitkan dengan sebenarnya agar dapat dipergunakan sebagaimana mestinya oleh pihak yang berkepentingan.
-    </div>
-
-    <!-- TANDA TANGAN -->
+    <!-- TANDA TANGAN PENGURUS -->
     <div class="ttd-container">
         <table class="ttd-table">
             <tr>
@@ -253,8 +200,11 @@
                     <div>{{ $klien->kota ?? 'Bandung' }}, {{ $tanggalSurat }}</div>
                     <div class="ttd-jabatan">{{ $jabatanPenandatangan }}</div>
                     
-                    <div class="stempel-digital">TERVERIFIKASI SISTEM</div>
-                    <div style="height: 12px;"></div>
+                    <div class="stempel-digital">TERVERIFIKASI SECARA ELEKTRONIK</div>
+                    <div class="stempel-note">
+                        Dokumen ini telah disetujui secara elektronik dan sah tanpa tanda tangan basah.
+                    </div>
+                    <div style="height: 10px;"></div>
                     
                     <div class="ttd-nama">{{ $surat->reviewer->nama }}</div>
                     <div style="font-size: 8.5pt; color: #6b7280; margin-top: 2px;">{{ $subJabatanPenandatangan }}</div>
@@ -269,12 +219,13 @@
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                     <td style="vertical-align: top;">
-                        <span class="badge-verified">DOKUMEN ELEKTRONIK SAH</span> — Diterbitkan otomatis melalui Platform <strong>Warga Digital</strong>.<br>
-                        Dokumen ini telah disetujui secara digital oleh Pengurus RT setempat sesuai data administrasi kependudukan yang tercatat.
+                        <span class="badge-verified">DOKUMEN ELEKTRONIK RESMI</span> — Diterbitkan otomatis melalui Platform <strong>Warga Digital</strong>.<br>
+                        Dokumen ini telah disetujui oleh Pengurus RT setempat sesuai data administrasi kependudukan yang tercatat.<br>
+                        <span style="font-size: 7.5pt; color: #4b5563;">Verifikasi keabsahan data surat dapat dicek mandiri melalui portal resmi: <strong>{{ url('/verifikasi') }}</strong></span>
                     </td>
-                    <td style="text-align: right; vertical-align: top; width: 170px;">
-                        Kode Validasi SHA-256:<br>
-                        <strong style="font-family: monospace; font-size: 8.5pt; color: #111827;">{{ $verificationCode }}</strong>
+                    <td style="text-align: right; vertical-align: top; width: 175px;">
+                        Kode Validasi Dokumen:<br>
+                        <strong style="font-family: monospace; font-size: 8.5pt; color: #111827; letter-spacing: 0.5px;">{{ $verificationCode }}</strong>
                     </td>
                 </tr>
             </table>

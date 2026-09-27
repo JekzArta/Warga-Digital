@@ -447,14 +447,24 @@ class SuratController extends Controller
         // Generate nomor surat resmi per RT
         $nomorSurat = SuratNumberGenerator::generate($surat->rt, $surat->jenis_surat);
 
+        // Generate kode verifikasi dokumen (Lookup Identifier berbasis SHA-256)
+        $kodeVerifikasi = strtoupper(substr(hash('sha256', ($nomorSurat ?? 'WD') . ($surat->id) . ($surat->created_at)), 0, 16));
+
+        // Tangani kemungkinan collision secara eksplisit
+        while (SuratPengajuan::withoutGlobalScopes()->where('kode_verifikasi', $kodeVerifikasi)->where('id', '!=', $surat->id)->exists()) {
+            $kodeVerifikasi = strtoupper(substr(hash('sha256', ($nomorSurat ?? 'WD') . ($surat->id) . ($surat->created_at) . microtime(true)), 0, 16));
+        }
+
         $sebelum = [
             'status' => $surat->status,
             'nomor_surat' => $surat->nomor_surat,
+            'kode_verifikasi' => $surat->kode_verifikasi,
         ];
 
         $surat->update([
             'status' => 'DISETUJUI',
             'nomor_surat' => $nomorSurat,
+            'kode_verifikasi' => $kodeVerifikasi,
             'reviewed_by' => $user->id,
             'alasan_tolak' => null,
         ]);
@@ -462,6 +472,7 @@ class SuratController extends Controller
         $sesudah = [
             'status' => 'DISETUJUI',
             'nomor_surat' => $nomorSurat,
+            'kode_verifikasi' => $kodeVerifikasi,
             'reviewed_by' => $user->id,
         ];
 

@@ -374,7 +374,7 @@ class SuratTest extends TestCase
 
         // Verifikasi tidak ada karakter '?' hasil glyph rusak
         $this->assertStringNotContainsString('? TERVERIFIKASI', $renderedHtml);
-        $this->assertStringContainsString('TERVERIFIKASI SISTEM', $renderedHtml);
+        $this->assertStringContainsString('TERVERIFIKASI SECARA ELEKTRONIK', $renderedHtml);
 
         // Verifikasi nomor surat tercetak konsisten
         $this->assertStringContainsString($surat->nomor_surat, $renderedHtml);

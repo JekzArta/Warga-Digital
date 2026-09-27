@@ -19,6 +19,7 @@ class SuratPengajuan extends Model
         'user_id',
         'jenis_surat',
         'nomor_surat',
+        'kode_verifikasi',
         'form_data',
         'status',
         'alasan_tolak',

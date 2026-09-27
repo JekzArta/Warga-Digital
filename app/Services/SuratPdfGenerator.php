@@ -77,8 +77,8 @@ class SuratPdfGenerator
 
         [$jabatanPenandatangan, $subJabatanPenandatangan] = self::getJabatanPenandatangan($reviewer, $rt, $rw);
 
-        // Kode hash verifikasi dokumen untuk keaslian surat
-        $verificationCode = strtoupper(substr(hash('sha256', ($surat->nomor_surat ?? 'WD') . ($surat->id) . ($surat->created_at)), 0, 16));
+        // Kode verifikasi dokumen resmi (Lookup Identifier) dibaca langsung dari database sebagai Single Source of Truth
+        $verificationCode = $surat->kode_verifikasi ?: strtoupper(substr(hash('sha256', ($surat->nomor_surat ?? 'WD') . ($surat->id) . ($surat->created_at)), 0, 16));
 
         // Alamat pemohon: prioritaskan alamat domisili yang diinput warga pada surat (misal SKD), fallback ke profil user
         $alamatCetak = !empty($surat->form_data['alamat_domisili'])
