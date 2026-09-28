@@ -15,6 +15,8 @@ class Klien extends Model
     protected $fillable = [
         'kode_wilayah',
         'nama',
+        'kecamatan',
+        'kota',
         'tenor_lisensi',
         'tanggal_mulai',
         'tanggal_berakhir',

@@ -31,8 +31,9 @@ class VerifikasiSuratTest extends TestCase
     /**
      * Helper membuat surat yang disetujui beserta kode verifikasinya.
      */
-    protected function createApprovedSurat(string $jenis = 'SKD', array $extraFormData = []): SuratPengajuan
+    protected function createApprovedSurat(string $jenis = 'SKD', array $extraFormData = [], ?User $reviewer = null): SuratPengajuan
     {
+        $reviewer = $reviewer ?? $this->ketuaRt;
         $nomorSurat = SuratNumberGenerator::generate($this->rt, $jenis);
         $kodeVerifikasi = strtoupper(substr(hash('sha256', $nomorSurat . '1' . now()->toDateTimeString()), 0, 16));
 
@@ -49,7 +50,7 @@ class VerifikasiSuratTest extends TestCase
             'kode_verifikasi' => $kodeVerifikasi,
             'form_data' => $formData,
             'status' => 'DISETUJUI',
-            'reviewed_by' => $this->ketuaRt->id,
+            'reviewed_by' => $reviewer->id,
         ]);
     }
 
@@ -65,12 +66,17 @@ class VerifikasiSuratTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('DATA TERCATAT RESMI');
-        $response->assertSee('Kode ini cocok dengan data penerbitan yang tercatat di sistem Warga Digital.');
+        $response->assertSee('Kode verifikasi cocok dengan data penerbitan yang tercatat pada sistem Warga Digital.');
+        $response->assertSee('Nomor Surat');
         $response->assertSee($surat->nomor_surat);
         $response->assertSee('Surat Keterangan Domisili');
         $response->assertSee(strtoupper($this->warga->nama));
         $response->assertSee('RT 05 / RW 03');
         $response->assertSee('Sekeloa');
+        $response->assertSee('Coblong');
+        $response->assertSee('Bandung');
+        $response->assertSee(strtoupper($this->ketuaRt->nama));
+        $response->assertSee('Ketua RT 05 / RW 03');
         $response->assertSee($surat->kode_verifikasi);
 
         // Uji akses via form query string /verifikasi?kode=...
@@ -138,40 +144,217 @@ class VerifikasiSuratTest extends TestCase
     }
 
     /**
-     * 5. Response / halaman tidak mengandung NIK, alamat lengkap, atau field sensitif untuk keenam jenis surat
+     * 5a. Uji SKD: Pemohon tampil, tanpa objek keterangan khusus, alamat profil/domisili privat tidak bocor
+     */
+    public function test_verifikasi_skd_menampilkan_pemohon_tanpa_objek_tambahan(): void
+    {
+        $surat = $this->createApprovedSurat('SKD', [
+            'alamat_domisili' => 'Jl. Rahasia Sekeloa No. 99 RT 05 RW 03',
+        ]);
+
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        $response->assertSee(strtoupper($this->warga->nama));
+        $response->assertSee('Surat Keterangan Domisili');
+        $response->assertDontSee('Rincian Objek Keterangan:');
+        $response->assertDontSee('Jl. Rahasia Sekeloa No. 99');
+    }
+
+    /**
+     * 5b. Uji SKU: Pemohon, Nama Usaha, dan Bidang Usaha tampil, data sensitif tidak tampil
+     */
+    public function test_verifikasi_sku_menampilkan_pemohon_dan_objek_usaha_tanpa_data_sensitif(): void
+    {
+        $surat = $this->createApprovedSurat('SKU', [
+            'nama_usaha' => 'Toko Kelontong Berkah Mandiri',
+            'bidang_usaha' => 'Perdagangan Bahan Pokok',
+            'omzet_per_bulan' => 'Rp 50.000.000',
+            'catatan_internal' => 'Catatan verifikator rahasia',
+        ]);
+
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        $response->assertSee(strtoupper($this->warga->nama));
+        $response->assertSee('Surat Keterangan Usaha');
+        $response->assertSee('Rincian Objek Keterangan:');
+        $response->assertSee('Nama Usaha');
+        $response->assertSee('Toko Kelontong Berkah Mandiri');
+        $response->assertSee('Bidang Usaha');
+        $response->assertSee('Perdagangan Bahan Pokok');
+        // Data sensitif di luar izin tidak boleh tampil
+        $response->assertDontSee('Rp 50.000.000');
+        $response->assertDontSee('Catatan verifikator rahasia');
+    }
+
+    /**
+     * 5c. Uji SKTM: Pemohon tampil, data ekonomi (penghasilan, tanggungan) TIDAK tampil
+     */
+    public function test_verifikasi_sktm_menampilkan_pemohon_tanpa_data_ekonomi(): void
+    {
+        $surat = $this->createApprovedSurat('SKTM', [
+            'keperluan' => 'Pengajuan beasiswa kuliah',
+            'penghasilan_per_bulan' => '1500000',
+            'jumlah_tanggungan' => '4 orang',
+            'alasan_sktm' => 'Keluarga prasejahtera berpenghasilan rendah',
+        ]);
+
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        $response->assertSee(strtoupper($this->warga->nama));
+        $response->assertSee('Surat Keterangan Tidak Mampu');
+        $response->assertDontSee('Rincian Objek Keterangan:');
+        $response->assertDontSee('1500000');
+        $response->assertDontSee('4 orang');
+        $response->assertDontSee('prasejahtera');
+    }
+
+    /**
+     * 5d. Uji SPKK: Pemohon dan Nama Kepala Keluarga tampil, alasan/jumlah anggota tidak tampil
+     */
+    public function test_verifikasi_spkk_menampilkan_pemohon_dan_nama_kepala_keluarga(): void
+    {
+        $surat = $this->createApprovedSurat('SPKK', [
+            'nama_kepala_keluarga' => 'Bambang Sugiono',
+            'alasan_permohonan' => 'Pecah kartu keluarga setelah menikah',
+            'jumlah_anggota' => '3 orang',
+        ]);
+
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        $response->assertSee(strtoupper($this->warga->nama));
+        $response->assertSee('Surat Pengantar Kartu Keluarga');
+        $response->assertSee('Rincian Objek Keterangan:');
+        $response->assertSee('Nama Kepala Keluarga');
+        $response->assertSee('Bambang Sugiono');
+        $response->assertDontSee('Pecah kartu keluarga setelah menikah');
+        $response->assertDontSee('3 orang');
+    }
+
+    /**
+     * 5e. Uji SKL: Dua entitas terpisah jelas (Pelapor & Bayi), tanggal lahir bayi TIDAK tampil
+     */
+    public function test_verifikasi_skl_menampilkan_nama_pelapor_dan_nama_anak_tanpa_tanggal_lahir(): void
+    {
+        $surat = $this->createApprovedSurat('SKL', [
+            'nama_anak' => 'Muhammad Rayyan Al-Fatih',
+            'tanggal_lahir_anak' => '2026-08-15',
+            'jenis_kelamin_anak' => 'Laki-laki',
+            'nama_ibu' => 'Siti Aminah',
+        ]);
+
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        $response->assertSee('Surat Keterangan Kelahiran');
+        $response->assertSee('Rincian Objek Keterangan:');
+        $response->assertSee('Nama Pelapor (Orang Tua)');
+        $response->assertSee(strtoupper($this->warga->nama));
+        $response->assertSee('Nama Bayi / Anak');
+        $response->assertSee('MUHAMMAD RAYYAN AL-FATIH');
+        // Tanggal lahir bayi & jenis kelamin TIDAK BOLEH tampil (prinsip minimum disclosure)
+        $response->assertDontSee('2026-08-15');
+        $response->assertDontSee('15 Agustus 2026');
+        $response->assertDontSee('Laki-laki');
+    }
+
+    /**
+     * 5f. Uji SKKm: Dua entitas terpisah jelas (Pelapor & Almarhum), detail kematian TIDAK tampil
+     */
+    public function test_verifikasi_skkm_menampilkan_nama_pelapor_dan_nama_almarhum_tanpa_detail_kematian(): void
+    {
+        $surat = $this->createApprovedSurat('SKKm', [
+            'nama_almarhum' => 'Hj. Siti Rohayah',
+            'tanggal_meninggal' => '2026-07-20',
+            'tempat_meninggal' => 'RS Hasan Sadikin Bandung',
+            'penyebab' => 'Sakit Komplikasi Usia Lanjut',
+        ]);
+
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        $response->assertSee('Surat Keterangan Kematian');
+        $response->assertSee('Rincian Objek Keterangan:');
+        $response->assertSee('Nama Pelapor (Ahli Waris)');
+        $response->assertSee(strtoupper($this->warga->nama));
+        $response->assertSee('Nama Almarhum / Almarhumah');
+        $response->assertSee('HJ. SITI ROHAYAH');
+        // Detail kematian TIDAK BOLEH diekspos
+        $response->assertDontSee('2026-07-20');
+        $response->assertDontSee('RS Hasan Sadikin Bandung');
+        $response->assertDontSee('Sakit Komplikasi Usia Lanjut');
+    }
+
+    /**
+     * 5g. Uji Penandatangan: Disetujui Ketua RT
+     */
+    public function test_verifikasi_penandatangan_disetujui_ketua_rt(): void
+    {
+        $surat = $this->createApprovedSurat('SKD', [], $this->ketuaRt);
+
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        $response->assertSee('Nama Penandatangan');
+        $response->assertSee(strtoupper($this->ketuaRt->nama));
+        $response->assertSee('Jabatan Penandatangan');
+        $response->assertSee('Ketua RT 05 / RW 03');
+    }
+
+    /**
+     * 5h. Uji Penandatangan: Disetujui Wakil RT
+     */
+    public function test_verifikasi_penandatangan_disetujui_wakil_rt(): void
+    {
+        $wakilRt = User::where('nik', '3273021005050002')->firstOrFail();
+        $surat = $this->createApprovedSurat('SKD', [], $wakilRt);
+
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        $response->assertSee('Nama Penandatangan');
+        $response->assertSee(strtoupper($wakilRt->nama));
+        $response->assertSee('Jabatan Penandatangan');
+        $response->assertSee('Wakil RT 05 / RW 03');
+    }
+
+    /**
+     * 5i. Uji Wilayah: Nilai kecamatan dan kota bersumber canonical dari model Klien
+     */
+    public function test_verifikasi_wilayah_klien_bersumber_canonical_dari_database(): void
+    {
+        $surat = $this->createApprovedSurat('SKD');
+
+        $klien = $this->rt->rw->klien;
+        $klien->update([
+            'kecamatan' => 'Coblong Uji Canonical',
+            'kota' => 'Bandung Kota Uji',
+        ]);
+
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        $response->assertSee('Coblong Uji Canonical');
+        $response->assertSee('Bandung Kota Uji');
+    }
+
+    /**
+     * 5j. Response / halaman tidak mengandung NIK, alamat lengkap, atau field sensitif
      */
     public function test_halaman_verifikasi_tidak_membocorkan_nik_alamat_lengkap_dan_data_sensitif(): void
     {
-        $testCases = [
-            'SKD' => ['alamat_domisili' => 'Jl. Rahasia No. 99 RT 05 RW 03'],
-            'SKU' => ['nama_usaha' => 'Warung Nasi Super Rahasia', 'bidang_usaha' => 'Kuliner Malam'],
-            'SKTM' => ['alasan_sktm' => 'Keluarga prasejahtera pendapatan rendah'],
-            'SPKK' => ['nama_kepala_keluarga' => 'Bambang Sukses', 'alasan_permohonan' => 'Pecah Kartu Keluarga'],
-            'SKL' => ['nama_anak' => 'Anak Bayi Rahasia', 'nama_ibu' => 'Siti Rahasia'],
-            'SKKm' => ['nama_almarhum' => 'Almarhum Rahasia', 'penyebab' => 'Penyakit Kronis Rahasia'],
-        ];
+        $surat = $this->createApprovedSurat('SKD');
+        $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
 
-        foreach ($testCases as $jenis => $extraData) {
-            $surat = $this->createApprovedSurat($jenis, $extraData);
-            $response = $this->get('/verifikasi/' . $surat->kode_verifikasi);
+        $response->assertStatus(200);
+        // NIK pemohon dan reviewer TIDAK BOLEH muncul sama sekali
+        $response->assertDontSee($this->warga->nik);
+        $response->assertDontSee($this->ketuaRt->nik);
 
-            $response->assertStatus(200);
+        // Alamat lengkap profil TIDAK BOLEH bocor
+        $response->assertDontSee($this->warga->alamat);
 
-            // NIK pemohon TIDAK BOLEH muncul dalam bentuk apa pun
-            $response->assertDontSee($this->warga->nik);
+        // Nomor kontak telepon dan email
+        $response->assertDontSee($this->warga->no_hp);
+        $response->assertDontSee($this->ketuaRt->no_hp);
 
-            // Alamat profil lengkap TIDAK BOLEH bocor
-            $response->assertDontSee($this->warga->alamat);
-
-            // Data spesifik sensitif form_data TIDAK BOLEH bocor
-            foreach ($extraData as $key => $val) {
-                $response->assertDontSee($val);
-            }
-
-            // Tidak ada link unduh file atau lampiran
-            $response->assertDontSee('unduh-pdf');
-            $response->assertDontSee('storage/surat_dokumen');
-        }
+        // Tidak ada link unduh file atau lampiran publik
+        $response->assertDontSee('unduh-pdf');
+        $response->assertDontSee('storage/surat_dokumen');
     }
 
     /**

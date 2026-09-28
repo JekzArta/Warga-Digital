@@ -50,10 +50,13 @@ class VerifikasiSuratController extends Controller
         // 2. Pilih HANYA field yang diizinkan (Zero Model Serialization, No NIK, No Alamat Lengkap)
         $surat = SuratPengajuan::withoutGlobalScopes()
             ->where('kode_verifikasi', $kodeInput)
-            ->select(['id', 'rt_id', 'user_id', 'jenis_surat', 'nomor_surat', 'kode_verifikasi', 'status', 'updated_at'])
+            ->select(['id', 'rt_id', 'user_id', 'jenis_surat', 'nomor_surat', 'kode_verifikasi', 'status', 'form_data', 'reviewed_by', 'updated_at'])
             ->with([
                 'user' => function ($query) {
                     $query->select(['id', 'nama']); // Hanya ID dan Nama lengkap pemohon
+                },
+                'reviewer' => function ($query) {
+                    $query->select(['id', 'nama', 'is_super_admin']);
                 },
                 'rt' => function ($query) {
                     $query->select(['id', 'rw_id', 'nomor_rt', 'nama']);
@@ -62,7 +65,7 @@ class VerifikasiSuratController extends Controller
                     $query->select(['id', 'klien_id', 'nomor_rw']);
                 },
                 'rt.rw.klien' => function ($query) {
-                    $query->select(['id', 'nama', 'kode_wilayah']);
+                    $query->select(['id', 'nama', 'kode_wilayah', 'kecamatan', 'kota']);
                 },
             ])
             ->first();
@@ -82,20 +85,92 @@ class VerifikasiSuratController extends Controller
         $rw = $rt?->rw;
         $klien = $rw?->klien;
         $namaKelurahan = $klien?->nama ? trim(str_ireplace('Kelurahan', '', $klien->nama)) : 'Sekeloa';
+        $kecamatan = $klien?->kecamatan ?: 'Coblong';
+        $kota = $klien?->kota ?: 'Bandung';
+
+        $reviewer = $surat->reviewer;
+        $penandatanganNama = $reviewer?->nama ? strtoupper($reviewer->nama) : '—';
+        $penandatanganJabatan = $reviewer ? SuratPdfGenerator::getJabatanPenandatangan($reviewer, $rt, $rw)[0] : 'Pengurus RT';
+
+        // Ekstraksi selektif Objek Keterangan (Minimum Necessary Disclosure)
+        // JANGAN mengekspos form_data mentah atau field sensitif ke view
+        $formData = is_array($surat->form_data) ? $surat->form_data : [];
+        $rincianObjek = [];
+
+        switch ($surat->jenis_surat) {
+            case 'SKU':
+                $rincianObjek = [
+                    [
+                        'label' => 'Nama Usaha',
+                        'value' => !empty($formData['nama_usaha']) ? (string) $formData['nama_usaha'] : '—',
+                    ],
+                    [
+                        'label' => 'Bidang Usaha',
+                        'value' => !empty($formData['bidang_usaha']) ? (string) $formData['bidang_usaha'] : '—',
+                    ],
+                ];
+                break;
+
+            case 'SPKK':
+                $rincianObjek = [
+                    [
+                        'label' => 'Nama Kepala Keluarga',
+                        'value' => !empty($formData['nama_kepala_keluarga']) ? (string) $formData['nama_kepala_keluarga'] : '—',
+                    ],
+                ];
+                break;
+
+            case 'SKL':
+                $rincianObjek = [
+                    [
+                        'label' => 'Nama Pelapor (Orang Tua)',
+                        'value' => strtoupper($surat->user->nama ?? '—'),
+                    ],
+                    [
+                        'label' => 'Nama Bayi / Anak',
+                        'value' => !empty($formData['nama_anak']) ? strtoupper((string) $formData['nama_anak']) : '—',
+                    ],
+                ];
+                break;
+
+            case 'SKKm':
+                $rincianObjek = [
+                    [
+                        'label' => 'Nama Pelapor (Ahli Waris)',
+                        'value' => strtoupper($surat->user->nama ?? '—'),
+                    ],
+                    [
+                        'label' => 'Nama Almarhum / Almarhumah',
+                        'value' => !empty($formData['nama_almarhum']) ? strtoupper((string) $formData['nama_almarhum']) : '—',
+                    ],
+                ];
+                break;
+
+            case 'SKD':
+            case 'SKTM':
+            default:
+                // Minimum disclosure: subjek/pemohon adalah orang yang sama, tidak ada objek tambahan
+                $rincianObjek = [];
+                break;
+        }
 
         // Transformasi ke DTO Array datar (Data Transfer Object)
-        // Memastikan tidak ada properti objek model yang bocor ke view Blade
+        // Memastikan tidak ada properti objek model atau data sensitif yang bocor ke view Blade
         $hasil = [
             'nomor_surat' => $surat->nomor_surat,
+            'jenis_surat_kode' => $surat->jenis_surat,
             'jenis_surat' => SuratPdfGenerator::getNamaJenisSurat($surat->jenis_surat),
             'nama_pemohon' => strtoupper($surat->user->nama ?? '—'),
             'rt_rw' => sprintf('RT %02d / RW %02d', $rt->nomor_rt ?? 5, $rw->nomor_rw ?? 3),
             'kelurahan' => $namaKelurahan,
-            'kecamatan' => 'Coblong',
-            'kota' => 'Bandung',
+            'kecamatan' => $kecamatan,
+            'kota' => $kota,
+            'penandatangan_nama' => $penandatanganNama,
+            'penandatangan_jabatan' => $penandatanganJabatan,
             'tanggal_terbit' => Carbon::parse($surat->updated_at)->translatedFormat('d F Y'),
             'kode_verifikasi' => $surat->kode_verifikasi,
-            'status_konfirmasi' => 'Kode ini cocok dengan data penerbitan yang tercatat di sistem Warga Digital.',
+            'status_konfirmasi' => 'Kode verifikasi cocok dengan data penerbitan yang tercatat pada sistem Warga Digital.',
+            'rincian_objek' => $rincianObjek,
         ];
 
         return view('verifikasi.index', [

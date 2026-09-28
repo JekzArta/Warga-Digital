@@ -158,13 +158,18 @@
 <body>
 
     <!-- KOP SURAT RESMI -->
+    @php
+        $namaKelurahan = $klien?->nama ? trim(str_ireplace('Kelurahan', '', $klien->nama)) : 'Sekeloa';
+        $namaKecamatan = $klien?->kecamatan ?? 'Coblong';
+        $namaKota = $klien?->kota ?? 'Bandung';
+    @endphp
     <table class="header-table">
         <tr>
             <td>
-                <div class="header-title-main">PEMERINTAH KOTA {{ strtoupper($klien->kota ?? 'BANDUNG') }}</div>
-                <div class="header-title-main">KECAMATAN {{ strtoupper($klien->kecamatan ?? 'COBLONG') }} - KELURAHAN {{ strtoupper($klien->kelurahan ?? 'SEKELOA') }}</div>
+                <div class="header-title-main">PEMERINTAH KOTA {{ strtoupper($namaKota) }}</div>
+                <div class="header-title-main">KECAMATAN {{ strtoupper($namaKecamatan) }} - KELURAHAN {{ strtoupper($namaKelurahan) }}</div>
                 <div class="header-title-sub">RUKUN WARGA 0{{ $rw->nomor_rw ?? 3 }} - RUKUN TETANGGA 0{{ $rt->nomor_rt ?? 5 }}</div>
-                <div class="header-address">Sekretariat: {{ $rt->nama ?? 'RT 05' }}, RW 0{{ $rw->nomor_rw ?? 3 }}, Kelurahan {{ $klien->kelurahan ?? 'Sekeloa' }}, Kota {{ $klien->kota ?? 'Bandung' }} - Jawa Barat</div>
+                <div class="header-address">Sekretariat: {{ $rt->nama ?? 'RT 05' }}, RW 0{{ $rw->nomor_rw ?? 3 }}, Kelurahan {{ $namaKelurahan }}, Kota {{ $namaKota }} - Jawa Barat</div>
             </td>
         </tr>
     </table>

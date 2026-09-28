@@ -32,6 +32,8 @@ class DemoSeeder extends Seeder
         $klien = Klien::create([
             'kode_wilayah' => '32.73.02.1005',
             'nama' => 'Kelurahan Sekeloa',
+            'kecamatan' => 'Coblong',
+            'kota' => 'Bandung',
             'tenor_lisensi' => '3_tahun',
             'tanggal_mulai' => Carbon::parse('2026-01-01'),
             'tanggal_berakhir' => Carbon::parse('2029-01-01'),

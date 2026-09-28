@@ -126,20 +126,32 @@
                     </div>
 
                     <div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm">
-                        <span class="text-xs font-semibold text-stone-500 w-44">Nomor Registrasi Surat</span>
+                        <span class="text-xs font-semibold text-stone-500 w-44">Nomor Surat</span>
                         <span class="font-mono font-bold text-emerald-800 sm:text-right">{{ $hasil['nomor_surat'] }}</span>
                     </div>
 
+                    @if(!in_array($hasil['jenis_surat_kode'], ['SKL', 'SKKm']))
                     <div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm">
                         <span class="text-xs font-semibold text-stone-500 w-44">Nama Lengkap Pemohon</span>
                         <span class="font-bold text-stone-900 sm:text-right">{{ $hasil['nama_pemohon'] }}</span>
                     </div>
+                    @endif
 
                     <div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm">
                         <span class="text-xs font-semibold text-stone-500 w-44">Wilayah Penerbit</span>
                         <span class="font-semibold text-stone-800 sm:text-right">
                             {{ $hasil['rt_rw'] }}, Kelurahan {{ $hasil['kelurahan'] }}, Kecamatan {{ $hasil['kecamatan'] }}, Kota {{ $hasil['kota'] }}
                         </span>
+                    </div>
+
+                    <div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm">
+                        <span class="text-xs font-semibold text-stone-500 w-44">Nama Penandatangan</span>
+                        <span class="font-bold text-stone-900 sm:text-right">{{ $hasil['penandatangan_nama'] }}</span>
+                    </div>
+
+                    <div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm">
+                        <span class="text-xs font-semibold text-stone-500 w-44">Jabatan Penandatangan</span>
+                        <span class="font-semibold text-stone-800 sm:text-right">{{ $hasil['penandatangan_jabatan'] }}</span>
                     </div>
 
                     <div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm">
@@ -150,6 +162,23 @@
                 </div>
             </div>
 
+            <!-- Blok Rincian Objek Keterangan (Kondisional per Jenis Surat) -->
+            @if(!empty($hasil['rincian_objek']))
+            <div>
+                <h3 class="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3">
+                    Rincian Objek Keterangan:
+                </h3>
+                <div class="border border-stone-200/80 rounded-2xl divide-y divide-stone-100 overflow-hidden bg-stone-50/30">
+                    @foreach($hasil['rincian_objek'] as $objek)
+                    <div class="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm">
+                        <span class="text-xs font-semibold text-stone-500 w-44">{{ $objek['label'] }}</span>
+                        <span class="font-bold text-stone-900 sm:text-right">{{ $objek['value'] }}</span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             <!-- Petunjuk Pemeriksa Pihak Ketiga & UU PDP Notice -->
             <div class="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 text-xs text-amber-900 space-y-1.5">
                 <div class="font-bold flex items-center gap-1.5 text-amber-950">
@@ -159,7 +188,7 @@
                     <span>Panduan Pemeriksa (Pihak Ketiga / Instansi / Lembaga):</span>
                 </div>
                 <p class="leading-relaxed text-amber-800">
-                    Sistem ini mengonfirmasi bahwa surat dengan nomor registrasi dan kode di atas memang tercatat sah diterbitkan oleh Pengurus RT setempat. Demi mematuhi prinsip pelindungan data pribadi (UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi / UU PDP), rincian data privat seperti NIK, alamat lengkap pemohon, isi keterangan khusus, dan berkas lampiran pendukung sengaja tidak dipublikasikan ke kanal umum. Silakan lakukan pencocokan kesesuaian nama pemohon dan nomor surat pada lembar fisik yang Anda pegang.
+                    Layanan ini menyajikan verifikasi pencatatan penerbitan surat pada sistem Warga Digital. Pihak pemeriksa dapat mencocokkan identitas pihak yang berkepentingan, rincian objek keterangan, nomor surat, penandatangan, serta metadata penerbitan terhadap dokumen fisik atau salinan resmi yang dipegang. Demi mematuhi prinsip pelindungan data pribadi (UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi / UU PDP), data privat seperti NIK, alamat lengkap pemohon, data ekonomi/penghasilan, tanggal lahir bayi, penyebab/tempat/tanggal kematian, serta berkas lampiran pendukung sengaja tidak diekspos ke kanal publik.
                 </p>
             </div>
         </div>
