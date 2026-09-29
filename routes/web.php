@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\FirstTimePasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\KomunitasController;
 use App\Http\Controllers\SuratController;
 use App\Http\Controllers\VerifikasiSuratController;
 use Illuminate\Support\Facades\Auth;
@@ -49,6 +50,26 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/approve', [SuratController::class, 'approve'])->name('approve');
         Route::post('/{id}/reject', [SuratController::class, 'reject'])->name('reject');
         Route::post('/{id}/minta-kelengkapan', [SuratController::class, 'requestCompletion'])->name('request-completion');
+    });
+
+    // Fitur 2: Ruang Komunitas (3 Layer: Pengumuman, Chat Bebas, Forum Warga)
+    Route::prefix('komunitas')->name('komunitas.')->group(function () {
+        // Hub / Beranda Komunitas
+        Route::get('/', [KomunitasController::class, 'index'])->name('index');
+
+        // Layer 1: Announcement (Pengumuman)
+        Route::post('/pengumuman', [KomunitasController::class, 'storePengumuman'])->name('pengumuman.store');
+        Route::post('/pengumuman/{id}/komentar', [KomunitasController::class, 'storePengumumanKomentar'])->name('pengumuman.komentar');
+
+        // Layer 2: Chat Bebas
+        Route::get('/chat/messages', [KomunitasController::class, 'getChatMessages'])->name('chat.messages');
+        Route::post('/chat/messages', [KomunitasController::class, 'sendChatMessage'])->name('chat.send');
+
+        // Layer 3: Forum Warga
+        Route::post('/forum/thread', [KomunitasController::class, 'storeThread'])->name('forum.thread.store');
+        Route::get('/forum/thread/{id}', [KomunitasController::class, 'showThread'])->name('forum.thread.show');
+        Route::post('/forum/thread/{id}/post', [KomunitasController::class, 'storePost'])->name('forum.post.store');
+        Route::post('/forum/thread/{id}/moderate', [KomunitasController::class, 'moderateThread'])->name('forum.thread.moderate');
     });
 });
 

@@ -127,4 +127,48 @@ class User extends Authenticatable
 
         return 'Warga';
     }
+
+    /**
+     * Memeriksa apakah user memiliki hak akses ke scope wilayah tertentu.
+     */
+    public function canAccessScope(string $scopeType, int|string $scopeId): bool
+    {
+        return \App\Services\ScopeAuthorizer::canAccess($this, $scopeType, $scopeId);
+    }
+
+    /**
+     * Mengambil array snapshot role aktif untuk dikunci secara permanen pada post/thread forum.
+     * Mengikuti hierarki SDD §3.3: Ketua RW > Ketua RT = Wakil RT > Sekretaris > Bendahara > Warga
+     *
+     * @return array<string>
+     */
+    public function getRoleSnapshot(): array
+    {
+        if ($this->is_super_admin) {
+            return ['Super Admin'];
+        }
+
+        $roles = $this->getActiveRoleNames();
+        if (empty($roles)) {
+            return ['Warga'];
+        }
+
+        $hierarchy = [
+            'ketua_rw' => 'Ketua RW',
+            'ketua_rt' => 'Ketua RT',
+            'wakil_rt' => 'Wakil RT',
+            'sekretaris' => 'Sekretaris',
+            'bendahara' => 'Bendahara',
+            'warga' => 'Warga',
+        ];
+
+        $snapshot = [];
+        foreach ($hierarchy as $roleKey => $badgeLabel) {
+            if (in_array($roleKey, $roles)) {
+                $snapshot[] = $badgeLabel;
+            }
+        }
+
+        return ! empty($snapshot) ? array_values(array_unique($snapshot)) : ['Warga'];
+    }
 }
