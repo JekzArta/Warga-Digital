@@ -58,8 +58,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [KomunitasController::class, 'index'])->name('index');
 
         // Layer 1: Announcement (Pengumuman)
+        Route::get('/pengumuman/{id}', [KomunitasController::class, 'showPengumuman'])->name('pengumuman.show');
         Route::post('/pengumuman', [KomunitasController::class, 'storePengumuman'])->name('pengumuman.store');
+        Route::post('/pengumuman/{id}/toggle-pin', [KomunitasController::class, 'togglePinPengumuman'])->name('pengumuman.toggle-pin');
         Route::post('/pengumuman/{id}/komentar', [KomunitasController::class, 'storePengumumanKomentar'])->name('pengumuman.komentar');
+        Route::post('/pengumuman/{id}/pembaruan', [KomunitasController::class, 'storePembaruan'])->name('pengumuman.pembaruan');
+        Route::post('/pengumuman/{id}/deactivate', [KomunitasController::class, 'deactivatePengumuman'])->name('pengumuman.deactivate');
+        Route::post('/pengumuman/{id}/link-forum', [KomunitasController::class, 'linkForum'])->name('pengumuman.link-forum');
 
         // Layer 2: Chat Bebas
         Route::get('/chat/messages', [KomunitasController::class, 'getChatMessages'])->name('chat.messages');

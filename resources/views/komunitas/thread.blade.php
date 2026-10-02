@@ -1,10 +1,11 @@
-@extends('layouts.app', ['title' => $thread->judul . ' — Forum Warga'])
+@extends('layouts.app', ['title' => $thread->judul . ' — Forum Warga', 'pageTitle' => 'Forum Warga'])
 
 @section('content')
 <div class="space-y-6" x-data="{ 
     showModerateModal: false,
     moderateAction: '',
     moderateTitle: '',
+    stickyExpanded: false,
     openModerate(action, title) {
         this.moderateAction = action;
         this.moderateTitle = title;
@@ -42,16 +43,6 @@
         </div>
         @endif
     </div>
-
-    <!-- Feedback Alerts -->
-    @if(session('success'))
-    <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-sm flex items-center gap-2 shadow-xs">
-        <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        <span>{{ session('success') }}</span>
-    </div>
-    @endif
 
     @if($errors->any())
     <div class="p-4 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-800 text-sm shadow-xs">
@@ -126,6 +117,16 @@
             <span>Tanggapan & Diskusi Warga</span>
             <span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-xs font-bold">{{ $thread->posts->count() }}</span>
         </h2>
+
+        @if($thread->status !== 'closed')
+        <a href="#form-tanggapan" @click="stickyExpanded = true; $nextTick(() => $refs.tanggapanInput?.focus())"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold border border-emerald-200/80 transition-all shadow-2xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span>Tulis Tanggapan</span>
+        </a>
+        @endif
     </div>
 
     <!-- Replies List -->
@@ -178,28 +179,60 @@
         @endforelse
     </div>
 
-    <!-- Reply Input Box -->
+    <!-- Reply Input Box (Pola A: Mini Sticky Input with Expand on Focus) -->
     @if($thread->status === 'closed')
     <div class="p-4 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs text-center font-medium shadow-xs">
         🔒 Diskusi pada topik usulan ini telah resmi ditutup oleh pengurus. Tanggapan baru tidak dapat dikirimkan.
     </div>
     @else
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5">
-        <h3 class="text-xs font-bold text-slate-800 mb-2">Tuliskan Tanggapan Anda</h3>
-        <form action="{{ route('komunitas.forum.post.store', $thread->id) }}" method="POST" class="space-y-3">
-            @csrf
-            <div>
-                <textarea name="konten" rows="3" required placeholder="Tuliskan argumen atau masukan konstruktif Anda..." class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"></textarea>
+    <div id="form-tanggapan" class="sticky bottom-4 z-20 transition-all duration-200">
+        <!-- Collapsed Mini Bar -->
+        <div x-show="!stickyExpanded" 
+             @click="stickyExpanded = true; $nextTick(() => $refs.tanggapanInput?.focus())"
+             class="bg-white/95 backdrop-blur-md rounded-2xl border border-stone-300/90 shadow-lg p-3 sm:p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:border-emerald-500/80 transition-all">
+            <div class="flex items-center gap-3 flex-1 min-w-0">
+                <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
+                    {{ substr(auth()->user()->nama ?? 'W', 0, 1) }}
+                </div>
+                <span class="text-xs text-slate-400 truncate">Tuliskan tanggapan atau masukan untuk usulan ini...</span>
             </div>
+            <button type="button" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs shrink-0 transition-all flex items-center gap-1.5">
+                <span>Balas</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Expanded Form Card -->
+        <div x-show="stickyExpanded" x-cloak 
+             class="bg-white rounded-2xl border border-stone-300 shadow-xl p-5 space-y-3">
             <div class="flex items-center justify-between">
-                <span class="text-[11px] text-slate-400">
-                    Identitas terkunci: <strong class="text-slate-700">{{ auth()->user()->nama }} ({{ auth()->user()->getHighestRoleBadge() }})</strong>
-                </span>
-                <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all">
-                    Kirim Tanggapan
+                <h3 class="text-xs font-bold text-slate-800">Tuliskan Tanggapan Anda</h3>
+                <button type="button" @click="stickyExpanded = false" class="text-slate-400 hover:text-slate-600 text-xs font-medium px-2 py-1 rounded-lg hover:bg-slate-100 transition-all">
+                    Ciutkan
                 </button>
             </div>
-        </form>
+            <form action="{{ route('komunitas.forum.post.store', $thread->id) }}" method="POST" class="space-y-3">
+                @csrf
+                <div>
+                    <textarea x-ref="tanggapanInput" name="konten" rows="3" required placeholder="Tuliskan argumen atau masukan konstruktif Anda..." class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"></textarea>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <span class="text-[11px] text-slate-400">
+                        Identitas terkunci: <strong class="text-slate-700">{{ auth()->user()->nama }} ({{ auth()->user()->getHighestRoleBadge() }})</strong>
+                    </span>
+                    <div class="flex items-center gap-2 self-end sm:self-auto">
+                        <button type="button" @click="stickyExpanded = false" class="px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                            Batal
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all">
+                            Kirim Tanggapan
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
     @endif
 

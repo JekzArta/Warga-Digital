@@ -342,6 +342,56 @@ class RuangKomunitasTest extends TestCase
     }
 
     /**
+     * Phase A: Chat message sending gracefully handles offline broadcast server (Reverb offline resilience).
+     */
+    public function test_chat_message_sending_succeeds_even_when_reverb_is_offline(): void
+    {
+        // Tanpa Event::fake, controller akan mencoba broadcast ke Reverb yang offline
+        // dan harus menangani exception tersebut secara elegan tanpa melempar HTTP 500
+        $konten = 'CHAT-TEST-RESILIENCE-' . uniqid();
+
+        $response = $this->actingAs($this->userA)->postJson('/komunitas/chat/messages', [
+            'scope_type' => 'rt',
+            'konten' => $konten,
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJson([
+            'status' => 'success',
+            'message' => 'Pesan berhasil dikirim.',
+            'data' => [
+                'scope_type' => 'rt',
+                'scope_id' => $this->rt05->id,
+                'author_id' => $this->userA->id,
+                'konten' => $konten,
+            ],
+        ]);
+
+        $this->assertDatabaseHas('chat_messages', [
+            'scope_type' => 'rt',
+            'scope_id' => $this->rt05->id,
+            'author_id' => $this->userA->id,
+            'konten' => $konten,
+        ]);
+    }
+
+    /**
+     * Phase A: Chat view includes CSRF token meta and Echo listeners.
+     */
+    public function test_chat_view_contains_csrf_meta_and_resilient_echo_listeners(): void
+    {
+        $response = $this->actingAs($this->userA)->get(route('komunitas.index', [
+            'scope' => 'rt',
+            'tab' => 'chat',
+        ]));
+
+        $response->assertStatus(200);
+        $response->assertSee('<meta name="csrf-token"', false);
+        $response->assertSee('.ChatMessageSent', false);
+        $response->assertSee('Obrolan Santai RT', false);
+    }
+
+    /**
      * Helper ScopeAuthorizer terisolasi dengan baik.
      */
     public function test_scope_authorizer_logic_direct_unit(): void
@@ -752,5 +802,73 @@ class RuangKomunitasTest extends TestCase
             'alasan' => 'Ketua RW intervensi thread internal RT.',
         ]);
         $resRtCross->assertStatus(403);
+    }
+
+    /**
+     * TAHAP 2 — Test 14: Pengurus berwenang (Ketua RT) dapat menyematkan dan melepas sematan pengumuman (toggle pin) disertai pencatatan audit log.
+     */
+    public function test_authorized_pengurus_can_toggle_pin_announcement_and_records_audit_log(): void
+    {
+        $announcement = Announcement::create([
+            'scope_type' => 'rt',
+            'scope_id' => $this->rt05->id,
+            'author_id' => $this->ketuaRt->id,
+            'judul' => 'Pengumuman Penting RT 05',
+            'konten' => 'Isi pengumuman penting.',
+            'tipe' => 'PENTING',
+            'is_pinned' => false,
+        ]);
+
+        // 1. Ketua RT pin pengumuman
+        $responsePin = $this->actingAs($this->ketuaRt)->post(route('komunitas.pengumuman.toggle-pin', $announcement->id));
+        $responsePin->assertRedirect();
+        $this->assertTrue($announcement->fresh()->is_pinned);
+
+        // Verifikasi audit log
+        $this->assertDatabaseHas('audit_logs', [
+            'aksi' => 'ANNOUNCEMENT_PINNED',
+            'target_type' => 'announcements',
+            'target_id' => $announcement->id,
+            'user_id' => $this->ketuaRt->id,
+        ]);
+
+        // 2. Ketua RT unpin pengumuman
+        $responseUnpin = $this->actingAs($this->ketuaRt)->post(route('komunitas.pengumuman.toggle-pin', $announcement->id));
+        $responseUnpin->assertRedirect();
+        $this->assertFalse($announcement->fresh()->is_pinned);
+
+        // Verifikasi audit log unpin
+        $this->assertDatabaseHas('audit_logs', [
+            'aksi' => 'ANNOUNCEMENT_UNPINNED',
+            'target_type' => 'announcements',
+            'target_id' => $announcement->id,
+            'user_id' => $this->ketuaRt->id,
+        ]);
+    }
+
+    /**
+     * TAHAP 2 — Test 15: Warga biasa atau pengurus RT lain ditolak saat mencoba toggle pin pengumuman (HTTP 403).
+     */
+    public function test_unauthorized_user_cannot_toggle_pin_announcement(): void
+    {
+        $announcement = Announcement::create([
+            'scope_type' => 'rt',
+            'scope_id' => $this->rt05->id,
+            'author_id' => $this->ketuaRt->id,
+            'judul' => 'Pengumuman Hak Cipta Pengurus',
+            'konten' => 'Hanya pengurus yang boleh pin.',
+            'tipe' => 'INFO',
+            'is_pinned' => false,
+        ]);
+
+        // Warga biasa coba toggle pin -> HTTP 403
+        $resWarga = $this->actingAs($this->userA)->post(route('komunitas.pengumuman.toggle-pin', $announcement->id));
+        $resWarga->assertStatus(403);
+        $this->assertFalse($announcement->fresh()->is_pinned);
+
+        // Warga RT 06 coba toggle pin pengumuman RT 05 -> HTTP 403
+        $resRt06 = $this->actingAs($this->userC)->post(route('komunitas.pengumuman.toggle-pin', $announcement->id));
+        $resRt06->assertStatus(403);
+        $this->assertFalse($announcement->fresh()->is_pinned);
     }
 }

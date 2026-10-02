@@ -14,6 +14,8 @@ use App\Services\ScopeAuthorizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class KomunitasController extends Controller
 {
@@ -47,13 +49,31 @@ class KomunitasController extends Controller
             $activeTab = 'pengumuman';
         }
 
-        // Layer 1: Announcements (Pengumuman Resmi)
-        $announcements = Announcement::with(['author', 'comments.author'])
+        // Layer 1: Announcements (Pengumuman Resmi — Hanya versi Aktif yang muncul di Active Feed)
+        $announcements = Announcement::with([
+                'author',
+                'comments.author',
+                'forumThread',
+                'previous.author',
+                'previous.comments',
+                'previous.previous',
+                'successor',
+            ])
+            ->active()
             ->where('scope_type', $requestedScope)
             ->where('scope_id', $scopeId)
             ->orderByDesc('is_pinned')
             ->latest('created_at')
             ->get();
+
+        // Daftar Thread Forum di scope yang sama untuk dropdown "Hubungkan ke Forum"
+        $availableThreads = ForumThread::whereHas('category', function ($q) use ($requestedScope, $scopeId) {
+                $q->where('scope_type', $requestedScope)
+                    ->where('scope_id', $scopeId);
+            })
+            ->where('status', 'aktif')
+            ->latest('created_at')
+            ->get(['id', 'judul', 'category_id']);
 
         // Layer 3: Forum Categories (Kategori Topik Rembuk Warga)
         $forumCategories = ForumCategory::where('scope_type', $requestedScope)
@@ -91,16 +111,25 @@ class KomunitasController extends Controller
                 'can_publish_announcement' => $canPublishAnnouncement,
                 'can_moderate_forum' => $canModerateForum,
                 'announcements' => $announcements,
+                'available_threads' => $availableThreads,
                 'forum_categories' => $forumCategories,
                 'threads' => $threads,
             ]);
         }
 
+        $pageTitle = match ($activeTab) {
+            'chat' => 'Chat Bebas',
+            'forum' => 'Forum Warga',
+            default => 'Pengumuman Resmi',
+        };
+
         return view('komunitas.index', compact(
+            'pageTitle',
             'requestedScope',
             'scopeId',
             'activeTab',
             'announcements',
+            'availableThreads',
             'forumCategories',
             'threads',
             'selectedCategoryId',
@@ -122,6 +151,8 @@ class KomunitasController extends Controller
             'konten' => ['required', 'string'],
             'tipe' => ['required', 'in:INFO,PENTING,MENDESAK'],
             'is_pinned' => ['nullable', 'boolean'],
+            'expired_at' => ['nullable', 'date'],
+            'forum_thread_id' => ['nullable', 'integer', 'exists:forum_threads,id'],
         ]);
 
         $user = Auth::user();
@@ -144,6 +175,14 @@ class KomunitasController extends Controller
             abort(403, 'Hanya pengurus yang berwenang menerbitkan pengumuman.');
         }
 
+        // Validasi anti cross-scope untuk forum_thread_id
+        if (! empty($validated['forum_thread_id'])) {
+            $thread = ForumThread::with('category')->findOrFail($validated['forum_thread_id']);
+            if ($thread->category->scope_type !== $scopeType || (int) $thread->category->scope_id !== (int) $canonicalScopeId) {
+                abort(422, 'Thread forum harus berada dalam lingkup wilayah yang sama.');
+            }
+        }
+
         $announcement = Announcement::create([
             'scope_type' => $scopeType,
             'scope_id' => $canonicalScopeId,
@@ -152,6 +191,10 @@ class KomunitasController extends Controller
             'konten' => $validated['konten'],
             'tipe' => $validated['tipe'],
             'is_pinned' => (bool) ($request->input('is_pinned', false)),
+            'expired_at' => $validated['expired_at'] ?? null,
+            'is_deactivated' => false,
+            'is_replaced' => false,
+            'forum_thread_id' => $validated['forum_thread_id'] ?? null,
         ]);
 
         // Audit Trail resmi untuk aksi pengurus
@@ -164,6 +207,8 @@ class KomunitasController extends Controller
                 'judul' => $announcement->judul,
                 'tipe' => $announcement->tipe,
                 'is_pinned' => $announcement->is_pinned,
+                'expired_at' => $announcement->expired_at?->toDateString(),
+                'forum_thread_id' => $announcement->forum_thread_id,
             ],
             alasan: 'Penerbitan pengumuman resmi ' . strtoupper($scopeType),
             rtId: $scopeType === 'rt' ? $canonicalScopeId : null,
@@ -174,7 +219,7 @@ class KomunitasController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Pengumuman resmi berhasil diterbitkan.',
-                'data' => $announcement->load('author'),
+                'data' => $announcement->load(['author', 'forumThread']),
             ], 201);
         }
 
@@ -183,8 +228,308 @@ class KomunitasController extends Controller
     }
 
     /**
+     * Menerbitkan Pembaruan Pengumuman Resmi (Layer 1 — BUKAN Edit In-Place).
+     * Membuat record pengumuman baru (B) yang menunjuk ke pengumuman lama (A).
+     * Pengumuman lama ditandai Replaced secara atomik dalam satu transaksi database.
+     * Menerapkan Anti-Branching: 1 pengumuman hanya boleh memiliki 1 direct successor.
+     */
+    public function storePembaruan(Request $request, int $id)
+    {
+        $oldAnnouncement = Announcement::findOrFail($id);
+        $user = Auth::user();
+
+        // Otorisasi pengurus sesuai scope pengumuman lama
+        if (! ScopeAuthorizer::canPublishAnnouncement($user, $oldAnnouncement->scope_type, $oldAnnouncement->scope_id)) {
+            abort(403, 'Anda tidak memiliki wewenang untuk menerbitkan pembaruan pada pengumuman ini.');
+        }
+
+        // Anti-Branching & Status Guard: Hanya pengumuman aktif & belum memiliki successor yang boleh diperbarui
+        if (! $oldAnnouncement->canBeUpdated()) {
+            abort(422, 'Pengumuman ini telah digantikan oleh pembaruan lain atau telah dinonaktifkan.');
+        }
+
+        $validated = $request->validate([
+            'judul' => ['required', 'string', 'max:255'],
+            'konten' => ['required', 'string'],
+            'tipe' => ['required', 'in:INFO,PENTING,MENDESAK'],
+            'is_pinned' => ['nullable', 'boolean'],
+            'expired_at' => ['nullable', 'date'],
+            'forum_thread_id' => ['nullable', 'integer', 'exists:forum_threads,id'],
+        ]);
+
+        // Validasi anti cross-scope untuk forum_thread_id jika disertakan
+        if (! empty($validated['forum_thread_id'])) {
+            $thread = ForumThread::with('category')->findOrFail($validated['forum_thread_id']);
+            if ($thread->category->scope_type !== $oldAnnouncement->scope_type || (int) $thread->category->scope_id !== (int) $oldAnnouncement->scope_id) {
+                abort(422, 'Thread forum harus berada dalam lingkup wilayah yang sama dengan pengumuman.');
+            }
+        }
+
+        // Eksekusi atomik: Tandai old sebagai REPLACED, terbitkan new sebagai ACTIVE successor
+        $newAnnouncement = DB::transaction(function () use ($validated, $oldAnnouncement, $user, $request) {
+            // 1. Kunci dan tandai pengumuman lama sebagai REPLACED
+            $oldAnnouncement->is_replaced = true;
+            $oldAnnouncement->save();
+
+            // 2. Terbitkan record pengumuman baru yang mereferensikan pengumuman lama
+            $new = Announcement::create([
+                'scope_type' => $oldAnnouncement->scope_type,
+                'scope_id' => $oldAnnouncement->scope_id,
+                'author_id' => $user->id,
+                'judul' => $validated['judul'],
+                'konten' => $validated['konten'],
+                'tipe' => $validated['tipe'],
+                'is_pinned' => (bool) ($request->input('is_pinned', false)),
+                'expired_at' => $validated['expired_at'] ?? null,
+                'replaces_announcement_id' => $oldAnnouncement->id,
+                'is_replaced' => false,
+                'is_deactivated' => false,
+                'forum_thread_id' => $validated['forum_thread_id'] ?? null,
+            ]);
+
+            // 3. Catat audit trail akuntabel
+            AuditLogger::log(
+                aksi: 'ANNOUNCEMENT_UPDATED',
+                targetType: 'announcements',
+                targetId: $new->id,
+                sebelum: [
+                    'id' => $oldAnnouncement->id,
+                    'judul' => $oldAnnouncement->judul,
+                    'is_replaced' => false,
+                ],
+                sesudah: [
+                    'id' => $new->id,
+                    'judul' => $new->judul,
+                    'replaces_announcement_id' => $oldAnnouncement->id,
+                    'is_replaced' => false,
+                ],
+                alasan: "Menerbitkan pembaruan resmi untuk pengumuman #{$oldAnnouncement->id}: {$oldAnnouncement->judul}",
+                rtId: $oldAnnouncement->scope_type === 'rt' ? $oldAnnouncement->scope_id : null,
+                rwId: $oldAnnouncement->scope_type === 'rw' ? $oldAnnouncement->scope_id : ($user->rw_id ?? $user->rt?->rw_id)
+            );
+
+            return $new;
+        });
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Pembaruan pengumuman resmi berhasil diterbitkan.',
+                'data' => $newAnnouncement->load(['author', 'previous', 'forumThread']),
+            ], 201);
+        }
+
+        return redirect()->route('komunitas.index', ['scope' => $newAnnouncement->scope_type, 'tab' => 'pengumuman'])
+            ->with('success', 'Pembaruan pengumuman resmi berhasil diterbitkan.');
+    }
+
+    /**
+     * Menonaktifkan Pengumuman Resmi (Layer 1 — BUKAN Hapus Permanen).
+     * Record dan komentar tetap dipertahankan, namun hilang dari Active Feed warga.
+     * Mewajibkan pengisian alasan pengurus dan mencatatnya ke AuditLogger.
+     */
+    public function deactivatePengumuman(Request $request, int $id)
+    {
+        $announcement = Announcement::findOrFail($id);
+        $user = Auth::user();
+
+        if (! ScopeAuthorizer::canPublishAnnouncement($user, $announcement->scope_type, $announcement->scope_id)) {
+            abort(403, 'Anda tidak memiliki wewenang untuk menonaktifkan pengumuman ini.');
+        }
+
+        $validated = $request->validate([
+            'alasan' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        $announcement->update([
+            'is_deactivated' => true,
+            'deactivated_at' => now(),
+            'deactivated_by' => $user->id,
+            'deactivation_reason' => $validated['alasan'],
+        ]);
+
+        AuditLogger::log(
+            aksi: 'ANNOUNCEMENT_DEACTIVATED',
+            targetType: 'announcements',
+            targetId: $announcement->id,
+            sebelum: ['is_deactivated' => false],
+            sesudah: [
+                'is_deactivated' => true,
+                'deactivated_at' => now()->toIso8601String(),
+                'deactivation_reason' => $validated['alasan'],
+            ],
+            alasan: $validated['alasan'],
+            rtId: $announcement->scope_type === 'rt' ? $announcement->scope_id : null,
+            rwId: $announcement->scope_type === 'rw' ? $announcement->scope_id : ($user->rw_id ?? $user->rt?->rw_id)
+        );
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Pengumuman resmi berhasil dinonaktifkan.',
+                'data' => $announcement,
+            ]);
+        }
+
+        return redirect()->route('komunitas.index', ['scope' => $announcement->scope_type, 'tab' => 'pengumuman'])
+            ->with('success', 'Pengumuman resmi berhasil dinonaktifkan.');
+    }
+
+    /**
+     * Menghubungkan pengumuman ke Thread Forum Warga Terkait (Layer 1 ↔ Layer 3).
+     * Hanya dapat dilakukan jika pengumuman belum memiliki Forum Terkait.
+     * Thread forum wajib berada pada lingkup wilayah (scope) yang sama.
+     */
+    public function linkForum(Request $request, int $id)
+    {
+        $announcement = Announcement::findOrFail($id);
+        $user = Auth::user();
+
+        if (! ScopeAuthorizer::canPublishAnnouncement($user, $announcement->scope_type, $announcement->scope_id)) {
+            abort(403, 'Anda tidak memiliki wewenang untuk menghubungkan pengumuman ini ke forum.');
+        }
+
+        if (! $announcement->canLinkForum()) {
+            abort(422, 'Pengumuman ini sudah memiliki Forum Terkait atau tidak aktif.');
+        }
+
+        $validated = $request->validate([
+            'forum_thread_id' => ['required', 'integer', 'exists:forum_threads,id'],
+        ]);
+
+        $thread = ForumThread::with('category')->findOrFail($validated['forum_thread_id']);
+        if ($thread->category->scope_type !== $announcement->scope_type || (int) $thread->category->scope_id !== (int) $announcement->scope_id) {
+            abort(422, 'Thread forum harus berada dalam lingkup wilayah yang sama dengan pengumuman.');
+        }
+
+        $announcement->update([
+            'forum_thread_id' => $thread->id,
+        ]);
+
+        AuditLogger::log(
+            aksi: 'ANNOUNCEMENT_FORUM_LINKED',
+            targetType: 'announcements',
+            targetId: $announcement->id,
+            sebelum: ['forum_thread_id' => null],
+            sesudah: ['forum_thread_id' => $thread->id],
+            alasan: "Menghubungkan pengumuman ke thread forum: {$thread->judul}",
+            rtId: $announcement->scope_type === 'rt' ? $announcement->scope_id : null,
+            rwId: $announcement->scope_type === 'rw' ? $announcement->scope_id : ($user->rw_id ?? $user->rt?->rw_id)
+        );
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Pengumuman berhasil dihubungkan ke Forum Warga.',
+                'data' => $announcement->load('forumThread'),
+            ]);
+        }
+
+        return redirect()->route('komunitas.index', ['scope' => $announcement->scope_type, 'tab' => 'pengumuman'])
+            ->with('success', 'Pengumuman berhasil dihubungkan ke Forum Warga.');
+    }
+
+    /**
+     * Menyematkan atau melepas sematan (toggle pin/unpin) pada pengumuman resmi (Layer 1).
+     * Khusus pengurus berwenang (Ketua RT/RW, Wakil RT, Sekretaris).
+     */
+    public function togglePinPengumuman(Request $request, int $id)
+    {
+        $announcement = Announcement::findOrFail($id);
+        $user = Auth::user();
+
+        if (! ScopeAuthorizer::canPublishAnnouncement($user, $announcement->scope_type, $announcement->scope_id)) {
+            abort(403, 'Anda tidak memiliki wewenang untuk mengubah status sematan pengumuman ini.');
+        }
+
+        $oldPinned = (bool) $announcement->is_pinned;
+        $newPinned = ! $oldPinned;
+        $announcement->is_pinned = $newPinned;
+        $announcement->save();
+
+        $actionName = $newPinned ? 'ANNOUNCEMENT_PINNED' : 'ANNOUNCEMENT_UNPINNED';
+        $deskripsi = ($newPinned ? 'Menyematkan' : 'Melepas sematan') . " pengumuman: {$announcement->judul}";
+
+        AuditLogger::log(
+            aksi: $actionName,
+            targetType: 'announcements',
+            targetId: $announcement->id,
+            sebelum: ['is_pinned' => $oldPinned],
+            sesudah: ['is_pinned' => $newPinned],
+            alasan: $deskripsi,
+            rtId: $announcement->scope_type === 'rt' ? $announcement->scope_id : null,
+            rwId: $announcement->scope_type === 'rw' ? $announcement->scope_id : ($user->rw_id ?? $user->rt?->rw_id)
+        );
+
+        $msg = $newPinned ? 'Pengumuman berhasil disematkan di posisi teratas.' : 'Sematan pengumuman berhasil dilepas.';
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $msg,
+                'data' => $announcement,
+            ]);
+        }
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    /**
+     * Menampilkan detail satu Pengumuman Resmi (Layer 1).
+     * Dapat membuka versi aktif maupun versi riwayat (lama/digantikan/dinonaktifkan).
+     * Menerapkan prinsip NON-REDIRECT: Versi lama tetap terbuka sebagai arsip histori.
+     */
+    public function showPengumuman(Request $request, int $id)
+    {
+        $announcement = Announcement::with([
+            'author',
+            'comments.author',
+            'forumThread',
+            'previous.author',
+            'previous.comments',
+            'previous.previous',
+            'successor.author',
+            'successor.comments',
+        ])->findOrFail($id);
+
+        $user = Auth::user();
+
+        if (! ScopeAuthorizer::canAccess($user, $announcement->scope_type, $announcement->scope_id)) {
+            abort(403, 'Anda tidak memiliki akses ke pengumuman wilayah ini.');
+        }
+
+        $canPublishAnnouncement = ScopeAuthorizer::canPublishAnnouncement($user, $announcement->scope_type, $announcement->scope_id);
+        $latestAnnouncement = $announcement->getLatestVersion();
+        $previousAnnouncement = $announcement->previous;
+        $successorAnnouncement = $announcement->successor;
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $announcement,
+                'latest' => $latestAnnouncement,
+                'previous' => $previousAnnouncement,
+                'successor' => $successorAnnouncement,
+                'can_receive_comments' => $announcement->canReceiveComments(),
+            ]);
+        }
+
+        $pageTitle = $announcement->judul . ' — Pengumuman Resmi';
+
+        return view('komunitas.pengumuman', compact(
+            'announcement',
+            'latestAnnouncement',
+            'previousAnnouncement',
+            'successorAnnouncement',
+            'canPublishAnnouncement',
+            'pageTitle'
+        ));
+    }
+
+    /**
      * Mengirim komentar/tanggapan pada Pengumuman (Layer 1).
      * Terbuka untuk seluruh warga aktif di scope yang bersangkutan.
+     * HARD REQUIREMENT: Versi lama (digantikan) dan versi dinonaktifkan adalah READ-ONLY untuk tanggapan baru!
      */
     public function storePengumumanKomentar(Request $request, int $id)
     {
@@ -197,6 +542,11 @@ class KomunitasController extends Controller
 
         if (! ScopeAuthorizer::canAccess($user, $announcement->scope_type, $announcement->scope_id)) {
             abort(403, 'Akses ke pengumuman wilayah ini tidak diizinkan.');
+        }
+
+        // HARD REQUIREMENT: Versi lama harus READ-ONLY untuk tanggapan baru!
+        if (! $announcement->canReceiveComments()) {
+            abort(422, 'Pengumuman ini telah digantikan oleh pembaruan terbaru atau telah dinonaktifkan. Tanggapan baru hanya dapat dikirimkan pada versi terbaru.');
         }
 
         $comment = AnnouncementComment::create([
@@ -318,8 +668,12 @@ class KomunitasController extends Controller
         // Muat relasi author untuk payload broadcast dan response JSON
         $message->load('author');
 
-        // Pancarkan event real-time ke Private Channel Reverb
-        broadcast(new ChatMessageSent($message))->toOthers();
+        // Pancarkan event real-time ke Private Channel Reverb (Graceful jika server websocket offline)
+        try {
+            broadcast(new ChatMessageSent($message))->toOthers();
+        } catch (\Throwable $e) {
+            Log::warning('Pesan chat berhasil disimpan ke database, namun broadcast Reverb gagal disiarkan: ' . $e->getMessage());
+        }
 
         $payload = [
             'id' => $message->id,
