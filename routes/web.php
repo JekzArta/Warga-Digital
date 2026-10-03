@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\FirstTimePasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
@@ -50,6 +51,11 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/approve', [SuratController::class, 'approve'])->name('approve');
         Route::post('/{id}/reject', [SuratController::class, 'reject'])->name('reject');
         Route::post('/{id}/minta-kelengkapan', [SuratController::class, 'requestCompletion'])->name('request-completion');
+    });
+
+    // Fitur 4: Meja Audit Akuntabilitas (System-Wide Audit Trail)
+    Route::middleware('role:super_admin,ketua_rw,ketua_rt,wakil_rt,sekretaris,bendahara')->prefix('admin/audit')->name('admin.audit.')->group(function () {
+        Route::get('/', [AuditController::class, 'index'])->name('index');
     });
 
     // Fitur 2: Ruang Komunitas (3 Layer: Pengumuman, Chat Bebas, Forum Warga)

@@ -131,9 +131,10 @@
             </div>
         </div>
 
-        <!-- Relationship & History Navigation Strip (Previous / Next) -->
-        @if($announcement->previous || $announcement->successor || $announcement->forumThread)
+        <!-- Relationship & History Navigation Strip (Previous / Next / Aktivitas) -->
+        @if($announcement->previous || $announcement->successor || $announcement->forumThread || $announcement->publicActivities->isNotEmpty())
         <div class="px-6 py-3.5 bg-stone-50/90 border-t border-slate-100 space-y-3">
+            @if($announcement->previous || $announcement->successor || $announcement->forumThread)
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
                 <!-- Navigasi Riwayat: Previous / Next -->
                 <div class="flex items-center gap-2 flex-wrap">
@@ -191,6 +192,37 @@
                     <a href="{{ route('komunitas.pengumuman.show', $announcement->previous->id) }}" class="text-emerald-700 font-semibold hover:underline">
                         Buka Versi Sebelumnya →
                     </a>
+                </div>
+            </div>
+            @endif
+            @endif
+
+            <!-- Aktivitas Pengumuman (Transparansi Riwayat Warga) -->
+            @if($announcement->publicActivities->isNotEmpty())
+            <div class="{{ ($announcement->previous || $announcement->successor || $announcement->forumThread) ? 'pt-2.5 border-t border-slate-200/70' : '' }} space-y-2">
+                <div class="flex items-center gap-1.5 text-slate-500 font-bold text-xs">
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Aktivitas Pengumuman</span>
+                </div>
+                <div class="space-y-2">
+                    @foreach($announcement->publicActivities as $activity)
+                    <div class="p-3 bg-white rounded-xl border border-stone-200/80 text-xs shadow-2xs space-y-1">
+                        <div class="flex items-center justify-between gap-2 flex-wrap text-slate-500 text-[11px]">
+                            <span class="font-bold text-slate-800 text-xs">{{ $activity->public_actor_label }}</span>
+                            <span>{{ $activity->created_at?->translatedFormat('d M Y · H:i') }} WIB</span>
+                        </div>
+                        <div class="text-slate-700 font-medium">
+                            {{ rtrim($activity->public_action_text, '.') }}.
+                        </div>
+                        @if(!empty($activity->alasan))
+                        <div class="text-slate-600 bg-stone-50 border-l-2 border-slate-300 px-2.5 py-1 text-[11px] rounded-r italic">
+                            Alasan: {{ $activity->alasan }}
+                        </div>
+                        @endif
+                    </div>
+                    @endforeach
                 </div>
             </div>
             @endif

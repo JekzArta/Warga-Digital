@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Constants\AuditAction;
 use App\Models\SuratKelengkapan;
 use App\Models\SuratPengajuan;
 use App\Services\AuditLogger;
@@ -280,6 +281,19 @@ class SuratController extends Controller
             'status' => 'MENUNGGU',
         ]);
 
+        // Audit Trail resmi: Warga berhasil mengajukan permohonan surat baru
+        AuditLogger::log(
+            AuditAction::SURAT_SUBMITTED,
+            'surat_pengajuan',
+            $surat->id,
+            null,
+            [
+                'jenis_surat' => $surat->jenis_surat,
+                'status' => 'MENUNGGU',
+            ],
+            'Warga mengajukan permohonan surat baru'
+        );
+
         return redirect()->route('surat.show', $surat->id)
             ->with('success', 'Permohonan surat berhasil diajukan dan sedang menunggu verifikasi Ketua RT.');
     }
@@ -307,7 +321,7 @@ class SuratController extends Controller
                 'status' => 'DIREVIEW',
                 'reviewed_by' => $user->id,
             ]);
-            AuditLogger::log('review_surat', 'surat_pengajuan', $surat->id, $sebelum, ['status' => 'DIREVIEW'], 'Pengurus RT membuka berkas permohonan surat');
+            AuditLogger::log(AuditAction::SURAT_REVIEWED, 'surat_pengajuan', $surat->id, $sebelum, ['status' => 'DIREVIEW'], 'Pengurus RT membuka berkas permohonan surat');
         }
 
         $namaJenis = SuratPdfGenerator::getNamaJenisSurat($surat->jenis_surat);
@@ -379,7 +393,7 @@ class SuratController extends Controller
         $sebelum = ['status' => $surat->status];
         $surat->update(['status' => 'MENUNGGU']);
 
-        AuditLogger::log('kirim_kelengkapan_surat', 'surat_pengajuan', $surat->id, $sebelum, ['status' => 'MENUNGGU'], 'Warga mengunggah perbaikan kelengkapan berkas');
+        AuditLogger::log(AuditAction::SURAT_COMPLETION_SUBMITTED, 'surat_pengajuan', $surat->id, $sebelum, ['status' => 'MENUNGGU'], 'Warga mengunggah perbaikan kelengkapan berkas');
 
         return redirect()->route('surat.show', $surat->id)
             ->with('success', 'Berkas kelengkapan berhasil dikirimkan. Permohonan Anda akan segera ditinjau ulang oleh Ketua RT.');
@@ -478,7 +492,7 @@ class SuratController extends Controller
 
         // Audit log wajib sesuai aturan AGENTS.md
         AuditLogger::log(
-            'approve_surat',
+            AuditAction::SURAT_APPROVED,
             'surat_pengajuan',
             $surat->id,
             $sebelum,
@@ -524,7 +538,7 @@ class SuratController extends Controller
 
         // Audit log wajib sesuai aturan AGENTS.md
         AuditLogger::log(
-            'tolak_surat',
+            AuditAction::SURAT_REJECTED,
             'surat_pengajuan',
             $surat->id,
             $sebelum,
@@ -564,7 +578,7 @@ class SuratController extends Controller
         ]);
 
         AuditLogger::log(
-            'minta_kelengkapan_surat',
+            AuditAction::SURAT_COMPLETION_REQUESTED,
             'surat_pengajuan',
             $surat->id,
             $sebelum,

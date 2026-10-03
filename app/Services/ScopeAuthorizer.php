@@ -111,4 +111,25 @@ class ScopeAuthorizer
 
         return false;
     }
+
+    /**
+     * Memeriksa apakah user memiliki wewenang mengakses Meja Audit Akuntabilitas.
+     * Sesuai matriks RBAC:
+     * - Warga: Tidak boleh (403)
+     * - Pengurus RT: Ketua RT, Wakil RT, Sekretaris, Bendahara (Read-only / Audit RT)
+     * - Pengurus RW: Ketua RW (Audit RW + child RT)
+     * - Super Admin: Global access
+     */
+    public static function canAccessAuditTrail(?User $user): bool
+    {
+        if (! $user || $user->status !== 'aktif') {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        return $user->hasRole(['ketua_rw', 'ketua_rt', 'wakil_rt', 'sekretaris', 'bendahara']);
+    }
 }

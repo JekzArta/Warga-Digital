@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Constants\AuditAction;
 use App\Events\ChatMessageSent;
 use App\Models\Announcement;
 use App\Models\AnnouncementComment;
@@ -58,6 +59,8 @@ class KomunitasController extends Controller
                 'previous.comments',
                 'previous.previous',
                 'successor',
+                'publicActivities.rt',
+                'publicActivities.rw',
             ])
             ->active()
             ->where('scope_type', $requestedScope)
@@ -255,6 +258,7 @@ class KomunitasController extends Controller
             'is_pinned' => ['nullable', 'boolean'],
             'expired_at' => ['nullable', 'date'],
             'forum_thread_id' => ['nullable', 'integer', 'exists:forum_threads,id'],
+            'alasan' => ['nullable', 'string', 'max:500'],
         ]);
 
         // Validasi anti cross-scope untuk forum_thread_id jika disertakan
@@ -303,7 +307,7 @@ class KomunitasController extends Controller
                     'replaces_announcement_id' => $oldAnnouncement->id,
                     'is_replaced' => false,
                 ],
-                alasan: "Menerbitkan pembaruan resmi untuk pengumuman #{$oldAnnouncement->id}: {$oldAnnouncement->judul}",
+                alasan: !empty($validated['alasan']) ? $validated['alasan'] : null,
                 rtId: $oldAnnouncement->scope_type === 'rt' ? $oldAnnouncement->scope_id : null,
                 rwId: $oldAnnouncement->scope_type === 'rw' ? $oldAnnouncement->scope_id : ($user->rw_id ?? $user->rt?->rw_id)
             );
@@ -490,6 +494,8 @@ class KomunitasController extends Controller
             'previous.previous',
             'successor.author',
             'successor.comments',
+            'publicActivities.rt',
+            'publicActivities.rw',
         ])->findOrFail($id);
 
         $user = Auth::user();

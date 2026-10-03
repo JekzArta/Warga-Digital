@@ -87,6 +87,33 @@ class Announcement extends Model
     }
 
     /**
+     * Riwayat aktivitas publik khusus pengumuman ini (transparansi warga).
+     * Dibatasi ketat hanya pada: ANNOUNCEMENT_UPDATED dan ANNOUNCEMENT_DEACTIVATED.
+     */
+    public function publicActivities(): HasMany
+    {
+        return $this->hasMany(AuditLog::class, 'target_id')
+            ->select([
+                'id',
+                'target_type',
+                'target_id',
+                'actor_nama',
+                'actor_role',
+                'aksi',
+                'alasan',
+                'rt_id',
+                'rw_id',
+                'created_at',
+            ])
+            ->whereIn('target_type', ['announcements', 'announcement'])
+            ->whereIn('aksi', [
+                \App\Constants\AuditAction::ANNOUNCEMENT_UPDATED,
+                \App\Constants\AuditAction::ANNOUNCEMENT_DEACTIVATED,
+            ])
+            ->latest('created_at');
+    }
+
+    /**
      * Scope untuk active feed warga:
      * - Belum digantikan (is_replaced = false)
      * - Belum dinonaktifkan (is_deactivated = false)

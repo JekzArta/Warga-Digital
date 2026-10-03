@@ -129,6 +129,26 @@ class User extends Authenticatable
     }
 
     /**
+     * Dapatkan canonical role identifier tertinggi untuk audit snapshot (SDD §3.3)
+     */
+    public function getHighestRoleCanonical(): string
+    {
+        if ($this->is_super_admin) {
+            return 'super_admin';
+        }
+
+        $roles = $this->getActiveRoleNames();
+
+        if (in_array('ketua_rw', $roles)) return 'ketua_rw';
+        if (in_array('ketua_rt', $roles)) return 'ketua_rt';
+        if (in_array('wakil_rt', $roles)) return 'wakil_rt';
+        if (in_array('sekretaris', $roles)) return 'sekretaris';
+        if (in_array('bendahara', $roles)) return 'bendahara';
+
+        return 'warga';
+    }
+
+    /**
      * Memeriksa apakah user memiliki hak akses ke scope wilayah tertentu.
      */
     public function canAccessScope(string $scopeType, int|string $scopeId): bool

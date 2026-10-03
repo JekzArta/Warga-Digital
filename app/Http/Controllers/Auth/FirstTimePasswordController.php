@@ -70,14 +70,15 @@ class FirstTimePasswordController extends Controller
 
         // Catat di audit trail
         AuditLogger::log(
-            aksi: 'aktivasi_akun_warga',
+            aksi: \App\Constants\AuditAction::AUTH_ACCOUNT_ACTIVATED,
             targetType: 'users',
             targetId: $user->id,
             sebelum: ['status' => 'belum_daftar'],
             sesudah: ['status' => 'aktif'],
             alasan: 'Warga melakukan aktivasi mandiri pertama kali via verifikasi NIK dan tanggal lahir',
             rtId: $user->rt_id,
-            rwId: $user->rw_id ?? $user->rt?->rw_id
+            rwId: $user->rw_id ?? $user->rt?->rw_id,
+            actor: $user
         );
 
         // Langsung login-kan warga

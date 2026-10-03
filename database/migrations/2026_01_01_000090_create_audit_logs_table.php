@@ -16,7 +16,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('rt_id')->nullable()->constrained('rt')->nullOnDelete();
             $table->foreignId('rw_id')->nullable()->constrained('rw')->nullOnDelete();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('aksi');        // approve_surat | tolak_surat | hapus_thread | assign_role | koreksi_kas | dll
             $table->string('target_type'); // surat_pengajuan | forum_thread | umkm_listing | kas_transaksi | user_role | dll
             $table->unsignedBigInteger('target_id');
