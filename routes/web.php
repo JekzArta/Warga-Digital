@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\FirstTimePasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\KasController;
 use App\Http\Controllers\KomunitasController;
 use App\Http\Controllers\SuratController;
 use App\Http\Controllers\VerifikasiSuratController;
@@ -81,6 +82,17 @@ Route::middleware('auth')->group(function () {
         Route::get('/forum/thread/{id}', [KomunitasController::class, 'showThread'])->name('forum.thread.show');
         Route::post('/forum/thread/{id}/post', [KomunitasController::class, 'storePost'])->name('forum.post.store');
         Route::post('/forum/thread/{id}/moderate', [KomunitasController::class, 'moderateThread'])->name('forum.thread.moderate');
+    });
+
+    // Fitur 3: Transparansi Anggaran (Kas RT)
+    Route::prefix('kas')->name('kas.')->group(function () {
+        Route::get('/', [KasController::class, 'index'])->name('index');
+        Route::post('/', [KasController::class, 'store'])
+            ->middleware('role:bendahara,ketua_rt,wakil_rt,super_admin')
+            ->name('store');
+        Route::post('/{id}/koreksi', [KasController::class, 'koreksi'])
+            ->middleware('role:bendahara,ketua_rt,wakil_rt,super_admin')
+            ->name('koreksi');
     });
 });
 

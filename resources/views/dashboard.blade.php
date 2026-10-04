@@ -74,7 +74,7 @@
         </a>
 
         <!-- Card 3: Transparansi Kas -->
-        <a href="#anggaran" class="bg-gradient-to-br from-[#B55239] to-[#963F28] text-white rounded-2xl p-5 hover:shadow-md transition-all duration-200 group flex flex-col justify-between shadow-xs">
+        <a href="{{ route('kas.index') }}" class="bg-gradient-to-br from-[#B55239] to-[#963F28] text-white rounded-2xl p-5 hover:shadow-md transition-all duration-200 group flex flex-col justify-between shadow-xs">
             <div>
                 <div class="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center mb-4 group-hover:scale-105 transition-transform backdrop-blur-xs">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -132,4 +132,48 @@ class ScopeAuthorizer
 
         return $user->hasRole(['ketua_rw', 'ketua_rt', 'wakil_rt', 'sekretaris', 'bendahara']);
     }
+
+    /**
+     * Memeriksa apakah user berwenang mengelola transaksi kas RT (input pemasukan/pengeluaran & koreksi).
+     * Sesuai matriks RBAC SDD §3.2:
+     * - Scope RT: Bendahara, Ketua RT, Wakil RT
+     * - Warga, Sekretaris, dan Ketua RW: Dilarang (Read-Only)
+     */
+    public static function canManageKas(?User $user, int $rtId): bool
+    {
+        if (! self::canAccess($user, 'rt', $rtId)) {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        return $user->hasRole(['bendahara', 'ketua_rt', 'wakil_rt']);
+    }
+
+    /**
+     * Memeriksa apakah user berwenang melihat transparansi kas RT tertentu.
+     * Sesuai matriks RBAC SDD §3.2 & TenantScope:
+     * - Warga dan Pengurus RT: hanya boleh melihat RT miliknya sendiri
+     * - Ketua RW: boleh melihat RT mana pun yang berada di bawah RW-nya
+     * - Super Admin: global access
+     */
+    public static function canViewKas(?User $user, int $rtId): bool
+    {
+        if (! $user || $user->status !== 'aktif') {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        if ($user->hasRole('ketua_rw') && $user->rw_id) {
+            $rt = \App\Models\Rt::find($rtId);
+            return $rt !== null && (int) $rt->rw_id === (int) $user->rw_id;
+        }
+
+        return self::canAccess($user, 'rt', $rtId);
+    }
 }
