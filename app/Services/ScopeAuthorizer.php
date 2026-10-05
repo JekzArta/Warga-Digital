@@ -176,4 +176,88 @@ class ScopeAuthorizer
 
         return self::canAccess($user, 'rt', $rtId);
     }
+
+    /**
+     * Memeriksa apakah user berwenang mengelola listing UMKM (membuat atau mengedit/menghapus listing).
+     * Sesuai aturan:
+     * - Warga: hanya boleh mengelola listing miliknya sendiri di RT-nya
+     * - Pengurus RT (Sekretaris, Bendahara, Ketua RT, Wakil RT): boleh mengelola di RT-nya
+     * - Ketua RW: tidak untuk listing operasional RT
+     * - Super Admin: akses global
+     * - Isolasi tenant RT berlaku ketat (lintas RT ditolak).
+     */
+    public static function canManageUmkm(?User $user, \App\Models\UmkmListing|int $listingOrRtId, ?int $ownerId = null): bool
+    {
+        if (! $user || $user->status !== 'aktif') {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        if ($listingOrRtId instanceof \App\Models\UmkmListing) {
+            $rtId = (int) $listingOrRtId->rt_id;
+            $listingOwnerId = (int) $listingOrRtId->user_id;
+        } else {
+            $rtId = (int) $listingOrRtId;
+            $listingOwnerId = $ownerId !== null ? (int) $ownerId : null;
+        }
+
+        // Isolasi Tenant: user harus terdaftar di RT yang sama
+        if (! self::canAccess($user, 'rt', $rtId)) {
+            return false;
+        }
+
+        // Ketua RW tidak mengelola listing operasional RT
+        if ($user->hasRole('ketua_rw') && ! $user->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris', 'bendahara', 'warga'])) {
+            return false;
+        }
+
+        // Pengurus RT (Ketua RT, Wakil RT, Sekretaris, Bendahara) boleh mengelola
+        if ($user->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris', 'bendahara'])) {
+            return true;
+        }
+
+        // Warga biasa hanya boleh mengelola listing miliknya sendiri
+        if ($user->hasRole('warga')) {
+            if ($listingOwnerId === null) {
+                return true;
+            }
+            return (int) $user->id === $listingOwnerId;
+        }
+
+        return false;
+    }
+
+    /**
+     * Memeriksa apakah user berwenang mereview (menyetujui / menolak) listing UMKM.
+     * Sesuai matriks RBAC SDD §3.2 & §6.4:
+     * - Scope RT: Sekretaris, Ketua RT, Wakil RT
+     * - Dilarang: Warga, Bendahara, Ketua RW
+     * - Super Admin: akses global
+     * - Isolasi tenant RT berlaku ketat.
+     */
+    public static function canReviewUmkm(?User $user, \App\Models\UmkmListing|int $listingOrRtId): bool
+    {
+        if (! $user || $user->status !== 'aktif') {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        $rtId = $listingOrRtId instanceof \App\Models\UmkmListing
+            ? (int) $listingOrRtId->rt_id
+            : (int) $listingOrRtId;
+
+        // Isolasi Tenant: reviewer harus berada di RT yang bersangkutan
+        if (! self::canAccess($user, 'rt', $rtId)) {
+            return false;
+        }
+
+        // Hanya Sekretaris, Ketua RT, dan Wakil RT
+        return $user->hasRole(['sekretaris', 'ketua_rt', 'wakil_rt']);
+    }
 }

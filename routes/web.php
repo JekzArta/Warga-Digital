@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\KasController;
 use App\Http\Controllers\KomunitasController;
 use App\Http\Controllers\SuratController;
+use App\Http\Controllers\UmkmController;
 use App\Http\Controllers\VerifikasiSuratController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -93,6 +94,17 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/koreksi', [KasController::class, 'koreksi'])
             ->middleware('role:bendahara,ketua_rt,wakil_rt,super_admin')
             ->name('koreksi');
+    });
+
+    // Fitur 5: UMKM (Jasa & Barang)
+    Route::prefix('umkm')->name('umkm.')->group(function () {
+        Route::get('/', [UmkmController::class, 'index'])->name('index');
+        Route::post('/', [UmkmController::class, 'store'])->name('store');
+        Route::match(['post', 'patch'], '/no-hp', [UmkmController::class, 'updateNoHp'])->name('updateNoHp');
+        Route::match(['put', 'patch'], '/{id}', [UmkmController::class, 'update'])->whereNumber('id')->name('update');
+        Route::delete('/{id}', [UmkmController::class, 'destroy'])->whereNumber('id')->name('destroy');
+        Route::post('/{id}/approve', [UmkmController::class, 'approve'])->whereNumber('id')->name('approve');
+        Route::post('/{id}/tolak', [UmkmController::class, 'tolak'])->whereNumber('id')->name('tolak');
     });
 });
 

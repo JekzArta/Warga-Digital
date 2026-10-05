@@ -131,7 +131,7 @@ class AuditAction
         if (str_starts_with($action, 'KAS_') || $targetType === 'kas_transaksi') {
             return 'Keuangan';
         }
-        if (str_starts_with($action, 'UMKM_') || $targetType === 'umkm_listings') {
+        if (str_starts_with($action, 'UMKM_') || in_array($targetType, ['umkm_listings', 'umkm_listing'])) {
             return 'UMKM';
         }
 

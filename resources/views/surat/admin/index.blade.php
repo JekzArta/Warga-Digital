@@ -24,15 +24,7 @@
         </a>
     </div>
 
-    <!-- Alert Notifikasi Flash Session -->
-    @if(session('success'))
-    <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 font-medium shadow-2xs">
-        <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        <span>{{ session('success') }}</span>
-    </div>
-    @endif
+
 
     <!-- 4 KARTU STATISTIK ANTREAN VERIFIKASI -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">

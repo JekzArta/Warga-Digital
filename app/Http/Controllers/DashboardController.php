@@ -39,11 +39,11 @@ class DashboardController extends Controller
             ->take(3)
             ->get();
 
-        // Listing UMKM untuk Rekomendasi
-        $umkmList = UmkmListing::with('user')
-            ->where('status', 'DISETUJUI')
+        // Rekomendasi UMKM Terkini (Scope RT/Tenant, Status DISETUJUI, Maksimal 3)
+        $umkmList = UmkmListing::disetujui()
+            ->with('user')
             ->latest()
-            ->take(4)
+            ->take(3)
             ->get();
 
         // Status Surat Terakhir Pengguna

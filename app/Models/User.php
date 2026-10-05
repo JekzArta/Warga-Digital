@@ -71,6 +71,11 @@ class User extends Authenticatable
         return $this->hasMany(UserRole::class, 'user_id')->whereNull('revoked_at');
     }
 
+    public function umkmListings(): HasMany
+    {
+        return $this->hasMany(UmkmListing::class, 'user_id');
+    }
+
     /**
      * Cek apakah user memiliki role tertentu.
      * Aturan:

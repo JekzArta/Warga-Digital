@@ -29,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
             'forum_posts'     => \App\Models\ForumPost::class,
             'users'           => \App\Models\User::class,
             'kas_transaksi'   => \App\Models\KasTransaksi::class,
+            'umkm_listing'    => \App\Models\UmkmListing::class,
             'umkm_listings'   => \App\Models\UmkmListing::class,
         ]);
     }

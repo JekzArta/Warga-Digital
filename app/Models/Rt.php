@@ -46,6 +46,11 @@ class Rt extends Model
         return $this->hasMany(UmkmListing::class, 'rt_id');
     }
 
+    public function umkmListings(): HasMany
+    {
+        return $this->hasMany(UmkmListing::class, 'rt_id');
+    }
+
     public function galeriAlbum(): HasMany
     {
         return $this->hasMany(GaleriAlbum::class, 'rt_id');

@@ -91,7 +91,7 @@
         </a>
 
         <!-- Card 4: Belanja UMKM -->
-        <a href="#umkm" class="bg-white rounded-2xl p-5 border border-stone-200/90 hover:border-emerald-600/40 hover:shadow-md transition-all duration-200 group flex flex-col justify-between">
+        <a href="{{ route('umkm.index') }}" class="bg-white rounded-2xl p-5 border border-stone-200/90 hover:border-emerald-600/40 hover:shadow-md transition-all duration-200 group flex flex-col justify-between">
             <div>
                 <div class="w-10 h-10 rounded-xl bg-[#131919] text-white flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,132 +108,119 @@
         </a>
     </div>
 
-    <!-- 3. REKOMENDASI UMKM DI SEKITAR ANDA (Matching Figma Product Carousel) -->
+    <!-- 3. REKOMENDASI UMKM DI SEKITAR ANDA (Real Database Integration) -->
     <div class="space-y-3">
         <div class="flex items-center justify-between">
             <h2 class="text-lg font-extrabold text-stone-900 tracking-tight">Rekomendasi UMKM di Sekitar Anda</h2>
-            <a href="#umkm" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1">
+            <a href="{{ route('umkm.index') }}" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1">
                 <span>Lihat Semua</span>
                 <span>&rarr;</span>
             </a>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <!-- Sample UMKM 1: Keripik Tempe -->
-            <div class="bg-white rounded-2xl border border-stone-200/90 overflow-hidden shadow-2xs hover:shadow-md transition-all group">
-                <div class="h-44 bg-amber-100 relative overflow-hidden flex items-center justify-center">
-                    <img 
-                        src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80" 
-                        alt="Keripik Tempe Bu Ani" 
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    >
-                    <button class="w-8 h-8 rounded-full bg-white/90 text-rose-500 flex items-center justify-center absolute top-3 right-3 shadow-xs hover:bg-white transition-colors">
-                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                        </svg>
-                    </button>
-                    <span class="absolute bottom-2.5 left-2.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                        RT 05
-                    </span>
-                </div>
-                <div class="p-4">
-                    <div class="flex items-center justify-between">
-                        <h4 class="font-bold text-stone-900 text-sm truncate">Gado-gado & Kupat Tahu Bu Imas</h4>
-                        <div class="flex items-center gap-1 text-xs font-bold text-amber-500 shrink-0">
-                            <span>★</span>
-                            <span class="text-stone-800">4.9</span>
-                            <span class="text-stone-400 font-normal">(58)</span>
-                        </div>
-                    </div>
-                    <p class="text-xs text-stone-500 mt-1 truncate">Kuliner olahan rumahan higienis</p>
-                    <div class="mt-3 flex items-center justify-between">
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-base font-extrabold text-stone-900">Rp 15.000</span>
-                            <span class="text-xs text-stone-400 line-through">Rp 18.000</span>
-                        </div>
-                        <a href="https://wa.me/6281234567801?text=Halo%20Bu%20Imas,%20saya%20tertarik%20pesan%20lewat%20Warga%20Digital" target="_blank" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors flex items-center gap-1 shadow-2xs">
-                            <span>Pesan WA</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
+        @if($umkmList->isNotEmpty())
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach($umkmList as $item)
+                    <div class="bg-white rounded-2xl border border-stone-200/90 overflow-hidden shadow-2xs hover:shadow-md hover:border-emerald-600/30 transition-all duration-200 group flex flex-col justify-between">
+                        <!-- Foto atau Fallback Placeholder -->
+                        <div class="h-44 bg-stone-100 relative overflow-hidden flex items-center justify-center">
+                            @if($item->foto_url)
+                                <img 
+                                    src="{{ Storage::url($item->foto_url) }}" 
+                                    alt="{{ $item->nama }}" 
+                                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                >
+                            @else
+                                <div class="flex flex-col items-center justify-center text-stone-400 p-4 text-center">
+                                    @if($item->kategori === 'barang')
+                                        <svg class="w-10 h-10 mb-1 text-amber-500/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                                        </svg>
+                                    @else
+                                        <svg class="w-10 h-10 mb-1 text-emerald-600/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                        </svg>
+                                    @endif
+                                    <span class="text-[11px] font-medium text-stone-400">Belum ada foto</span>
+                                </div>
+                            @endif
 
-            <!-- Sample UMKM 2: Aneka Kue Basah -->
-            <div class="bg-white rounded-2xl border border-stone-200/90 overflow-hidden shadow-2xs hover:shadow-md transition-all group">
-                <div class="h-44 bg-amber-100 relative overflow-hidden flex items-center justify-center">
-                    <img 
-                        src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=80" 
-                        alt="Aneka Kue Basah" 
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    >
-                    <button class="w-8 h-8 rounded-full bg-white/90 text-rose-500 flex items-center justify-center absolute top-3 right-3 shadow-xs hover:bg-white transition-colors">
-                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                        </svg>
-                    </button>
-                    <span class="absolute bottom-2.5 left-2.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                        RT 05
-                    </span>
-                </div>
-                <div class="p-4">
-                    <div class="flex items-center justify-between">
-                        <h4 class="font-bold text-stone-900 text-sm truncate">Aneka Kue Basah & Nasi Box</h4>
-                        <div class="flex items-center gap-1 text-xs font-bold text-amber-500 shrink-0">
-                            <span>★</span>
-                            <span class="text-stone-800">4.8</span>
-                            <span class="text-stone-400 font-normal">(42)</span>
-                        </div>
-                    </div>
-                    <p class="text-xs text-stone-500 mt-1 truncate">Menerima pesanan arisan & tasyakuran</p>
-                    <div class="mt-3 flex items-center justify-between">
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-base font-extrabold text-stone-900">Rp 25.000</span>
-                        </div>
-                        <a href="https://wa.me/6281234567802?text=Halo%20saya%20ingin%20tanya%20menu%20kue%20lewat%20Warga%20Digital" target="_blank" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors flex items-center gap-1 shadow-2xs">
-                            <span>Pesan WA</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
+                            <!-- Badge Kategori -->
+                            <div class="absolute top-2.5 left-2.5">
+                                @if($item->kategori === 'barang')
+                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-white shadow-xs">
+                                        Barang
+                                    </span>
+                                @else
+                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-700 text-white shadow-xs">
+                                        Jasa
+                                    </span>
+                                @endif
+                            </div>
 
-            <!-- Sample UMKM 3: Jasa Servis & Cuci AC -->
-            <div class="bg-white rounded-2xl border border-stone-200/90 overflow-hidden shadow-2xs hover:shadow-md transition-all group">
-                <div class="h-44 bg-slate-100 relative overflow-hidden flex items-center justify-center">
-                    <img 
-                        src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80" 
-                        alt="Jasa Servis AC" 
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    >
-                    <button class="w-8 h-8 rounded-full bg-white/90 text-rose-500 flex items-center justify-center absolute top-3 right-3 shadow-xs hover:bg-white transition-colors">
-                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                        </svg>
-                    </button>
-                    <span class="absolute bottom-2.5 left-2.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                        Jasa • RT 05
-                    </span>
+                            <!-- Badge RT Wilayah -->
+                            <span class="absolute bottom-2.5 left-2.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                RT 0{{ $item->rt?->nomor_rt ?? ($user->rt?->nomor_rt ?? '5') }}
+                            </span>
+                        </div>
+
+                        <!-- Info Card -->
+                        <div class="p-4 flex-1 flex flex-col justify-between">
+                            <div>
+                                <h4 class="font-bold text-stone-900 text-sm truncate group-hover:text-emerald-700 transition-colors" title="{{ $item->nama }}">
+                                    {{ $item->nama }}
+                                </h4>
+                                <p class="text-xs text-stone-500 mt-1 flex items-center gap-1.5 truncate">
+                                    <svg class="w-3.5 h-3.5 text-stone-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                    </svg>
+                                    <span>oleh <strong class="text-stone-700 font-semibold">{{ $item->user?->nama ?? 'Warga RT' }}</strong></span>
+                                </p>
+                                <p class="text-xs text-stone-500 mt-1 line-clamp-2 leading-relaxed">
+                                    {{ $item->deskripsi }}
+                                </p>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
+                                <div class="flex items-baseline">
+                                    <span class="text-sm font-extrabold text-stone-900">
+                                        {{ $item->formatted_harga }}
+                                    </span>
+                                </div>
+                                @if($item->whatsapp_link)
+                                    <a href="{{ $item->whatsapp_link }}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors flex items-center gap-1 shadow-2xs shrink-0">
+                                        <span>Pesan WA</span>
+                                    </a>
+                                @else
+                                    <a href="{{ route('umkm.index') }}" class="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs transition-colors flex items-center gap-1 shadow-2xs shrink-0">
+                                        <span>Lihat Detail</span>
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <!-- Empty State Rekomendasi UMKM -->
+            <div class="bg-white rounded-2xl border border-stone-200/90 p-8 text-center shadow-2xs">
+                <div class="w-12 h-12 rounded-2xl bg-stone-100 text-stone-400 flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                    </svg>
                 </div>
-                <div class="p-4">
-                    <div class="flex items-center justify-between">
-                        <h4 class="font-bold text-stone-900 text-sm truncate">Servis & Cuci AC Pak Slamet</h4>
-                        <div class="flex items-center gap-1 text-xs font-bold text-amber-500 shrink-0">
-                            <span>★</span>
-                            <span class="text-stone-800">5.0</span>
-                            <span class="text-stone-400 font-normal">(19)</span>
-                        </div>
-                    </div>
-                    <p class="text-xs text-stone-500 mt-1 truncate">Cuci AC, isi freon & perbaikan</p>
-                    <div class="mt-3 flex items-center justify-between">
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">Mulai Rp 65.000</span>
-                        </div>
-                        <a href="https://wa.me/6281234567803?text=Halo%20Pak%20Slamet,%20saya%20butuh%20servis%20AC%20lewat%20Warga%20Digital" target="_blank" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors flex items-center gap-1 shadow-2xs">
-                            <span>Pesan WA</span>
-                        </a>
-                    </div>
+                <h3 class="text-sm font-bold text-stone-800">Belum ada usaha warga yang tayang</h3>
+                <p class="text-xs text-stone-500 max-w-md mx-auto mt-1 leading-relaxed">
+                    Dukung ekonomi tetangga atau jadilah yang pertama mempromosikan produk dan jasa Anda di lingkungan RT.
+                </p>
+                <div class="mt-4">
+                    <a href="{{ route('umkm.index') }}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors shadow-xs">
+                        <span>Lihat Katalog UMKM</span>
+                        <span>&rarr;</span>
+                    </a>
                 </div>
             </div>
-        </div>
+        @endif
     </div>
 
     <!-- 4. 2-COLUMN MAIN CONTENT (Left 60% : Right 40%) -->

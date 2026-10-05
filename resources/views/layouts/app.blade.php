@@ -158,11 +158,11 @@
                 <div>
                     <span class="text-[10px] font-bold text-slate-500 tracking-wider uppercase px-3 block mb-1">Keuangan & Ekonomi</span>
                     <div class="space-y-1">
-                        <a href="#umkm" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all">
-                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <a href="{{ route('umkm.index') }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition-all {{ request()->routeIs('umkm.*') ? 'bg-white/10 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+                            <svg class="w-4 h-4 {{ request()->routeIs('umkm.*') ? 'text-emerald-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
                             </svg>
-                            <span>Belanja UMKM Sini</span>
+                            <span>UMKM Warga</span>
                         </a>
                         <a href="{{ route('kas.index') }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition-all {{ request()->routeIs('kas.*') ? 'bg-white/10 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
                             <svg class="w-4 h-4 {{ request()->routeIs('kas.*') ? 'text-emerald-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -273,20 +273,44 @@
         <main class="flex-1 p-4 sm:p-8 max-w-[1400px] w-full mx-auto">
             <!-- Flash Messages -->
             @if(session('success'))
-                <div class="mb-6 p-4 rounded-2xl bg-[#EAF5EC] border border-[#BFDFCA] text-[#1E5D36] flex items-center gap-3 text-sm shadow-xs">
-                    <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                    <span>{{ session('success') }}</span>
+                <div x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms class="mb-6 p-4 rounded-2xl bg-[#EAF5EC] border border-[#BFDFCA] text-[#1E5D36] flex items-center justify-between gap-3 text-sm shadow-xs">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="font-medium">{{ session('success') }}</span>
+                    </div>
+                    <button type="button" @click="show = false" class="text-emerald-700/60 hover:text-emerald-900 transition-colors p-1 rounded-lg hover:bg-emerald-600/10 cursor-pointer" title="Tutup">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between gap-3 text-sm shadow-xs">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span class="font-medium">{{ session('error') }}</span>
+                    </div>
+                    <button type="button" @click="show = false" class="text-rose-700/60 hover:text-rose-900 transition-colors p-1 rounded-lg hover:bg-rose-600/10 cursor-pointer" title="Tutup">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
                 </div>
             @endif
 
             @if(session('info'))
-                <div class="mb-6 p-4 rounded-2xl bg-sky-50 border border-sky-200 text-sky-800 flex items-center gap-3 text-sm shadow-xs">
-                    <svg class="w-5 h-5 text-sky-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                    </svg>
-                    <span>{{ session('info') }}</span>
+                <div x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms class="mb-6 p-4 rounded-2xl bg-sky-50 border border-sky-200 text-sky-800 flex items-center justify-between gap-3 text-sm shadow-xs">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-sky-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="font-medium">{{ session('info') }}</span>
+                    </div>
+                    <button type="button" @click="show = false" class="text-sky-700/60 hover:text-sky-900 transition-colors p-1 rounded-lg hover:bg-sky-600/10 cursor-pointer" title="Tutup">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
                 </div>
             @endif
 
