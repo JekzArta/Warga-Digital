@@ -122,6 +122,38 @@
             <h1 class="text-xl font-bold text-slate-800 leading-snug mb-3">{{ $announcement->judul }}</h1>
             <div class="text-sm text-slate-600 whitespace-pre-line leading-relaxed">{{ $announcement->konten }}</div>
 
+            @if($announcement->kalenderEvent)
+            <!-- Agenda Kalender Linked Card -->
+            <div class="mt-4 p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-white border border-emerald-200 flex flex-col items-center justify-center shrink-0 shadow-2xs">
+                        <span class="text-base font-extrabold text-emerald-800 leading-none">{{ $announcement->kalenderEvent->tanggal->format('d') }}</span>
+                        <span class="text-[9px] font-bold text-emerald-600 uppercase mt-0.5">{{ $announcement->kalenderEvent->tanggal->translatedFormat('M') }}</span>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-emerald-950">Terjadwal di Kalender Warga</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md {{ $announcement->kalenderEvent->kategori_badge_class }}">
+                                {{ $announcement->kalenderEvent->kategori_label }}
+                            </span>
+                        </div>
+                        <div class="text-[11px] text-emerald-800/80 flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <span>🕒 {{ $announcement->kalenderEvent->formatted_waktu }}</span>
+                            @if($announcement->kalenderEvent->lokasi)
+                                <span>•</span>
+                                <span>📍 {{ $announcement->kalenderEvent->lokasi }}</span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <a href="{{ route('kalender.index', ['scope' => $announcement->scope_type, 'year' => $announcement->kalenderEvent->tanggal->year, 'month' => $announcement->kalenderEvent->tanggal->month]) }}"
+                   class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs hover:bg-emerald-50 transition-all self-start sm:self-auto">
+                    <span>Buka Kalender</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </a>
+            </div>
+            @endif
+
             <!-- Author footer -->
             <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
                 <div class="flex items-center gap-2">

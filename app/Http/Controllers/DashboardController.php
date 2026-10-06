@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Announcement;
+use App\Models\GaleriAlbum;
+use App\Models\KalenderEvent;
 use App\Models\KasTransaksi;
 use App\Models\SuratPengajuan;
 use App\Models\UmkmListing;
@@ -64,6 +66,35 @@ class DashboardController extends Controller
             'total_warga' => 50,
         ];
 
+        // Kalender Event: Visibilitas sesuai scope wilayah user
+        $now = Carbon::now();
+        $currentYear = $now->year;
+        $currentMonth = $now->month;
+        $dashboardCalendarMonth = Carbon::createFromDate($currentYear, $currentMonth, 1)->startOfDay();
+
+        // Agenda aktif bulan berjalan (untuk titik indikator pada kalender grid)
+        $dashboardMonthEvents = KalenderEvent::forUser($user)
+            ->active()
+            ->forMonth($currentYear, $currentMonth)
+            ->get();
+
+        $dashboardEventsByDate = $dashboardMonthEvents->groupBy(fn ($e) => $e->tanggal->format('Y-m-d'));
+
+        // 2 Agenda terdekat mendatang
+        $upcomingAgenda = KalenderEvent::forUser($user)
+            ->active()
+            ->upcoming()
+            ->with('announcement')
+            ->take(2)
+            ->get();
+
+        // Galeri Dokumentasi Kegiatan Terbaru (Scope Sesuai User)
+        $latestAlbum = GaleriAlbum::with(['coverFoto', 'rt'])
+            ->withCount('fotos')
+            ->orderBy('tanggal_kegiatan', 'desc')
+            ->latest('id')
+            ->first();
+
         // Format greeting waktu
         $hour = (int) date('H');
         if ($hour >= 5 && $hour < 11) {
@@ -83,6 +114,12 @@ class DashboardController extends Controller
             'announcements' => $announcements,
             'umkmList' => $umkmList,
             'recentSurat' => $recentSurat,
+            'dashboardEventsByDate' => $dashboardEventsByDate,
+            'dashboardDaysInMonth' => $dashboardCalendarMonth->daysInMonth,
+            'dashboardFirstDayOfWeek' => $dashboardCalendarMonth->dayOfWeek,
+            'dashboardCurrentMonth' => $dashboardCalendarMonth,
+            'upcomingAgenda' => $upcomingAgenda,
+            'latestAlbum' => $latestAlbum,
         ]);
     }
 }

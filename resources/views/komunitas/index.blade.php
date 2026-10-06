@@ -133,6 +133,16 @@
                                     <span>Berlaku s/d {{ \Carbon\Carbon::parse($anc->expired_at)->translatedFormat('d F Y') }}</span>
                                 </span>
                             @endif
+
+                            @if($anc->kalenderEvent)
+                                <a href="{{ route('kalender.index', ['scope' => $anc->scope_type, 'year' => $anc->kalenderEvent->tanggal->year, 'month' => $anc->kalenderEvent->tanggal->month]) }}" 
+                                   class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-all" title="Lihat di Kalender Warga">
+                                    <svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span>📅 {{ $anc->kalenderEvent->tanggal->format('d/m/Y') }} ({{ $anc->kalenderEvent->kategori_label }})</span>
+                                </a>
+                            @endif
                         </div>
 
                         <!-- Right Actions Header -->
@@ -157,7 +167,20 @@
                                 <!-- Buat Pembaruan (Hanya jika belum digantikan / dinonaktifkan) -->
                                 @if($anc->canBeUpdated())
                                 <button type="button" 
-                                        @click="selectedAnnouncement = { id: {{ $anc->id }}, judul: '{{ addslashes($anc->judul) }}', tipe: '{{ $anc->tipe }}', konten: {{ json_encode($anc->konten) }}, expired_at: '{{ $anc->expired_at?->toDateString() }}', forum_thread_id: '{{ $anc->forum_thread_id }}' }; showPembaruanModal = true"
+                                        @click="selectedAnnouncement = { 
+                                            id: {{ $anc->id }}, 
+                                            judul: '{{ addslashes($anc->judul) }}', 
+                                            tipe: '{{ $anc->tipe }}', 
+                                            konten: {{ json_encode($anc->konten) }}, 
+                                            expired_at: '{{ $anc->expired_at?->toDateString() }}', 
+                                            forum_thread_id: '{{ $anc->forum_thread_id }}',
+                                            has_agenda: {{ $anc->kalenderEvent ? 'true' : 'false' }},
+                                            agenda_tanggal: '{{ $anc->kalenderEvent?->tanggal?->format('Y-m-d') }}',
+                                            agenda_waktu_mulai: '{{ $anc->kalenderEvent?->waktu_mulai }}',
+                                            agenda_waktu_selesai: '{{ $anc->kalenderEvent?->waktu_selesai }}',
+                                            agenda_lokasi: '{{ addslashes($anc->kalenderEvent?->lokasi ?? '') }}',
+                                            agenda_kategori: '{{ $anc->kalenderEvent?->kategori ?? 'KEGIATAN' }}'
+                                        }; showPembaruanModal = true"
                                         title="Terbitkan pembaruan untuk pengumuman ini"
                                         class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-all">
                                     <svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -401,6 +424,50 @@
                         <textarea name="konten" rows="4" required placeholder="Tuliskan isi rincian pengumuman..." class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500"></textarea>
                     </div>
 
+                    <!-- Seksi Tambahan: Jadwalkan sebagai Agenda Kalender -->
+                    <div class="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3" x-data="{ isAgenda: false }">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" name="is_agenda" id="is_agenda" value="1" x-model="isAgenda" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                            <label for="is_agenda" class="text-xs font-semibold text-slate-800 cursor-pointer">
+                                Jadwalkan sebagai Agenda Kalender
+                            </label>
+                        </div>
+
+                        <div x-show="isAgenda" x-cloak class="space-y-3 pt-2 border-t border-slate-200/60">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Tanggal Kegiatan <span class="text-rose-500">*</span></label>
+                                    <input type="date" name="agenda_tanggal" :required="isAgenda" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Kategori Agenda <span class="text-rose-500">*</span></label>
+                                    <select name="agenda_kategori" :required="isAgenda" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                                        <option value="KEGIATAN">Kegiatan Warga</option>
+                                        <option value="RAPAT">Rapat Warga</option>
+                                        <option value="POSYANDU">Posyandu</option>
+                                        <option value="LAINNYA">Lainnya</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Waktu Mulai (HH:MM)</label>
+                                    <input type="text" name="agenda_waktu_mulai" placeholder="08:00" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Waktu Selesai (HH:MM)</label>
+                                    <input type="text" name="agenda_waktu_selesai" placeholder="11:00" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-700 mb-1">Lokasi Kegiatan (Opsional)</label>
+                                <input type="text" name="agenda_lokasi" placeholder="Contoh: Balai Warga / Lapangan Serbaguna" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex items-center gap-2">
                         <input type="checkbox" name="is_pinned" id="is_pinned" value="1" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
                         <label for="is_pinned" class="text-xs text-slate-600 font-medium">Sematkan di posisi teratas (Pin)</label>
@@ -474,6 +541,50 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-700 mb-1">Alasan Pembaruan (Opsional)</label>
                         <input type="text" name="alasan" placeholder="Contoh: Ralat waktu pelaksanaan" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500">
+                    </div>
+
+                    <!-- Seksi Tambahan: Agenda Kalender Pembaruan -->
+                    <div class="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" name="is_agenda" id="is_agenda_pembaruan" value="1" x-model="selectedAnnouncement.has_agenda" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                            <label for="is_agenda_pembaruan" class="text-xs font-semibold text-slate-800 cursor-pointer">
+                                Jadwalkan sebagai Agenda Kalender
+                            </label>
+                        </div>
+
+                        <div x-show="selectedAnnouncement?.has_agenda" x-cloak class="space-y-3 pt-2 border-t border-slate-200/60">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Tanggal Kegiatan <span class="text-rose-500">*</span></label>
+                                    <input type="date" name="agenda_tanggal" :value="selectedAnnouncement?.agenda_tanggal" :required="selectedAnnouncement?.has_agenda" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Kategori Agenda <span class="text-rose-500">*</span></label>
+                                    <select name="agenda_kategori" :value="selectedAnnouncement?.agenda_kategori || 'KEGIATAN'" :required="selectedAnnouncement?.has_agenda" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                                        <option value="KEGIATAN">Kegiatan Warga</option>
+                                        <option value="RAPAT">Rapat Warga</option>
+                                        <option value="POSYANDU">Posyandu</option>
+                                        <option value="LAINNYA">Lainnya</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Waktu Mulai (HH:MM)</label>
+                                    <input type="text" name="agenda_waktu_mulai" :value="selectedAnnouncement?.agenda_waktu_mulai" placeholder="08:00" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Waktu Selesai (HH:MM)</label>
+                                    <input type="text" name="agenda_waktu_selesai" :value="selectedAnnouncement?.agenda_waktu_selesai" placeholder="11:00" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-700 mb-1">Lokasi Kegiatan (Opsional)</label>
+                                <input type="text" name="agenda_lokasi" :value="selectedAnnouncement?.agenda_lokasi" placeholder="Contoh: Balai Warga / Lapangan Serbaguna" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:ring-1 focus:ring-emerald-500 bg-white">
+                            </div>
+                        </div>
                     </div>
 
                     <div class="flex items-center gap-2">

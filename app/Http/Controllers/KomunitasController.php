@@ -10,6 +10,7 @@ use App\Models\ChatMessage;
 use App\Models\ForumCategory;
 use App\Models\ForumPost;
 use App\Models\ForumThread;
+use App\Models\KalenderEvent;
 use App\Services\AuditLogger;
 use App\Services\ScopeAuthorizer;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class KomunitasController extends Controller
 {
@@ -61,6 +63,7 @@ class KomunitasController extends Controller
                 'successor',
                 'publicActivities.rt',
                 'publicActivities.rw',
+                'kalenderEvent',
             ])
             ->active()
             ->where('scope_type', $requestedScope)
@@ -156,6 +159,25 @@ class KomunitasController extends Controller
             'is_pinned' => ['nullable', 'boolean'],
             'expired_at' => ['nullable', 'date'],
             'forum_thread_id' => ['nullable', 'integer', 'exists:forum_threads,id'],
+            'is_agenda' => ['nullable', 'boolean'],
+            'jadwalkan_kalender' => ['nullable', 'boolean'],
+            'agenda_tanggal' => ['nullable', 'date'],
+            'tanggal' => ['nullable', 'date'],
+            'agenda_waktu_mulai' => ['nullable', 'string', 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/'],
+            'waktu_mulai' => ['nullable', 'string', 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/'],
+            'agenda_waktu_selesai' => ['nullable', 'string', 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/'],
+            'waktu_selesai' => ['nullable', 'string', 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/'],
+            'agenda_lokasi' => ['nullable', 'string', 'max:255'],
+            'lokasi' => ['nullable', 'string', 'max:255'],
+            'agenda_kategori' => ['nullable', 'in:KEGIATAN,RAPAT,POSYANDU,LAINNYA'],
+            'kategori' => ['nullable', 'in:KEGIATAN,RAPAT,POSYANDU,LAINNYA'],
+        ], [
+            'agenda_waktu_mulai.regex' => 'Format waktu mulai harus berupa HH:MM (contoh: 08:30).',
+            'waktu_mulai.regex' => 'Format waktu mulai harus berupa HH:MM (contoh: 08:30).',
+            'agenda_waktu_selesai.regex' => 'Format waktu selesai harus berupa HH:MM (contoh: 11:00).',
+            'waktu_selesai.regex' => 'Format waktu selesai harus berupa HH:MM (contoh: 11:00).',
+            'agenda_kategori.in' => 'Kategori agenda tidak valid.',
+            'kategori.in' => 'Kategori agenda tidak valid.',
         ]);
 
         $user = Auth::user();
@@ -186,43 +208,102 @@ class KomunitasController extends Controller
             }
         }
 
-        $announcement = Announcement::create([
-            'scope_type' => $scopeType,
-            'scope_id' => $canonicalScopeId,
-            'author_id' => $user->id,
-            'judul' => $validated['judul'],
-            'konten' => $validated['konten'],
-            'tipe' => $validated['tipe'],
-            'is_pinned' => (bool) ($request->input('is_pinned', false)),
-            'expired_at' => $validated['expired_at'] ?? null,
-            'is_deactivated' => false,
-            'is_replaced' => false,
-            'forum_thread_id' => $validated['forum_thread_id'] ?? null,
-        ]);
+        // Resolusi metadata agenda kalender
+        $isAgenda = $request->boolean('is_agenda') || $request->boolean('jadwalkan_kalender');
+        $agendaTanggal = $validated['agenda_tanggal'] ?? $validated['tanggal'] ?? null;
+        $agendaKategori = $validated['agenda_kategori'] ?? $validated['kategori'] ?? null;
+        $agendaWaktuMulai = $validated['agenda_waktu_mulai'] ?? $validated['waktu_mulai'] ?? null;
+        $agendaWaktuSelesai = $validated['agenda_waktu_selesai'] ?? $validated['waktu_selesai'] ?? null;
+        $agendaLokasi = $validated['agenda_lokasi'] ?? $validated['lokasi'] ?? null;
 
-        // Audit Trail resmi untuk aksi pengurus
-        AuditLogger::log(
-            aksi: 'terbitkan_pengumuman',
-            targetType: 'announcement',
-            targetId: $announcement->id,
-            sebelum: null,
-            sesudah: [
-                'judul' => $announcement->judul,
-                'tipe' => $announcement->tipe,
-                'is_pinned' => $announcement->is_pinned,
-                'expired_at' => $announcement->expired_at?->toDateString(),
-                'forum_thread_id' => $announcement->forum_thread_id,
-            ],
-            alasan: 'Penerbitan pengumuman resmi ' . strtoupper($scopeType),
-            rtId: $scopeType === 'rt' ? $canonicalScopeId : null,
-            rwId: $scopeType === 'rw' ? $canonicalScopeId : ($user->rw_id ?? $user->rt?->rw_id)
-        );
+        if ($isAgenda) {
+            if (empty($agendaTanggal)) {
+                throw ValidationException::withMessages([
+                    'agenda_tanggal' => ['Tanggal kegiatan wajib diisi jika agenda kalender diaktifkan.'],
+                    'tanggal' => ['Tanggal kegiatan wajib diisi jika agenda kalender diaktifkan.'],
+                ]);
+            }
+            if (empty($agendaKategori)) {
+                throw ValidationException::withMessages([
+                    'agenda_kategori' => ['Kategori kegiatan wajib dipilih jika agenda kalender diaktifkan.'],
+                    'kategori' => ['Kategori kegiatan wajib dipilih jika agenda kalender diaktifkan.'],
+                ]);
+            }
+            if (! empty($agendaWaktuMulai) && ! empty($agendaWaktuSelesai)) {
+                if (strcmp($agendaWaktuSelesai, $agendaWaktuMulai) < 0) {
+                    throw ValidationException::withMessages([
+                        'agenda_waktu_selesai' => ['Waktu selesai tidak boleh lebih awal dari waktu mulai.'],
+                        'waktu_selesai' => ['Waktu selesai tidak boleh lebih awal dari waktu mulai.'],
+                    ]);
+                }
+            }
+        }
+
+        // Eksekusi atomik dalam transaksi database
+        $announcement = DB::transaction(function () use (
+            $validated, $scopeType, $canonicalScopeId, $user, $request,
+            $isAgenda, $agendaTanggal, $agendaKategori, $agendaWaktuMulai, $agendaWaktuSelesai, $agendaLokasi
+        ) {
+            $ann = Announcement::create([
+                'scope_type' => $scopeType,
+                'scope_id' => $canonicalScopeId,
+                'author_id' => $user->id,
+                'judul' => $validated['judul'],
+                'konten' => $validated['konten'],
+                'tipe' => $validated['tipe'],
+                'is_pinned' => (bool) ($request->input('is_pinned', false)),
+                'expired_at' => $validated['expired_at'] ?? null,
+                'is_deactivated' => false,
+                'is_replaced' => false,
+                'forum_thread_id' => $validated['forum_thread_id'] ?? null,
+            ]);
+
+            if ($isAgenda) {
+                KalenderEvent::create([
+                    'scope_type' => $scopeType,
+                    'scope_id' => $canonicalScopeId,
+                    'judul' => $ann->judul,
+                    'deskripsi' => $ann->konten,
+                    'tanggal' => $agendaTanggal,
+                    'waktu_mulai' => $agendaWaktuMulai ?: null,
+                    'waktu_selesai' => $agendaWaktuSelesai ?: null,
+                    'lokasi' => $agendaLokasi ?: null,
+                    'kategori' => $agendaKategori,
+                    'sumber' => KalenderEvent::SUMBER_ANNOUNCEMENT,
+                    'announcement_id' => $ann->id,
+                    'is_cancelled' => false,
+                    'pembatalan_alasan' => null,
+                    'created_by' => $user->id,
+                ]);
+            }
+
+            // Audit Trail resmi untuk aksi pengurus (tidak ada duplicate audit kalender)
+            AuditLogger::log(
+                aksi: 'terbitkan_pengumuman',
+                targetType: 'announcement',
+                targetId: $ann->id,
+                sebelum: null,
+                sesudah: [
+                    'judul' => $ann->judul,
+                    'tipe' => $ann->tipe,
+                    'is_pinned' => $ann->is_pinned,
+                    'expired_at' => $ann->expired_at?->toDateString(),
+                    'forum_thread_id' => $ann->forum_thread_id,
+                    'is_agenda' => $isAgenda,
+                ],
+                alasan: 'Penerbitan pengumuman resmi ' . strtoupper($scopeType),
+                rtId: $scopeType === 'rt' ? $canonicalScopeId : null,
+                rwId: $scopeType === 'rw' ? $canonicalScopeId : ($user->rw_id ?? $user->rt?->rw_id)
+            );
+
+            return $ann;
+        });
 
         if ($request->expectsJson() || $request->wantsJson()) {
             return response()->json([
                 'status' => 'success',
                 'message' => 'Pengumuman resmi berhasil diterbitkan.',
-                'data' => $announcement->load(['author', 'forumThread']),
+                'data' => $announcement->load(['author', 'forumThread', 'kalenderEvent']),
             ], 201);
         }
 
@@ -259,6 +340,25 @@ class KomunitasController extends Controller
             'expired_at' => ['nullable', 'date'],
             'forum_thread_id' => ['nullable', 'integer', 'exists:forum_threads,id'],
             'alasan' => ['nullable', 'string', 'max:500'],
+            'is_agenda' => ['nullable', 'boolean'],
+            'jadwalkan_kalender' => ['nullable', 'boolean'],
+            'agenda_tanggal' => ['nullable', 'date'],
+            'tanggal' => ['nullable', 'date'],
+            'agenda_waktu_mulai' => ['nullable', 'string', 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/'],
+            'waktu_mulai' => ['nullable', 'string', 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/'],
+            'agenda_waktu_selesai' => ['nullable', 'string', 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/'],
+            'waktu_selesai' => ['nullable', 'string', 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/'],
+            'agenda_lokasi' => ['nullable', 'string', 'max:255'],
+            'lokasi' => ['nullable', 'string', 'max:255'],
+            'agenda_kategori' => ['nullable', 'in:KEGIATAN,RAPAT,POSYANDU,LAINNYA'],
+            'kategori' => ['nullable', 'in:KEGIATAN,RAPAT,POSYANDU,LAINNYA'],
+        ], [
+            'agenda_waktu_mulai.regex' => 'Format waktu mulai harus berupa HH:MM.',
+            'waktu_mulai.regex' => 'Format waktu mulai harus berupa HH:MM.',
+            'agenda_waktu_selesai.regex' => 'Format waktu selesai harus berupa HH:MM.',
+            'waktu_selesai.regex' => 'Format waktu selesai harus berupa HH:MM.',
+            'agenda_kategori.in' => 'Kategori agenda tidak valid.',
+            'kategori.in' => 'Kategori agenda tidak valid.',
         ]);
 
         // Validasi anti cross-scope untuk forum_thread_id jika disertakan
@@ -269,8 +369,42 @@ class KomunitasController extends Controller
             }
         }
 
+        // Resolusi metadata agenda kalender
+        $isAgenda = $request->boolean('is_agenda') || $request->boolean('jadwalkan_kalender');
+        $agendaTanggal = $validated['agenda_tanggal'] ?? $validated['tanggal'] ?? null;
+        $agendaKategori = $validated['agenda_kategori'] ?? $validated['kategori'] ?? null;
+        $agendaWaktuMulai = $validated['agenda_waktu_mulai'] ?? $validated['waktu_mulai'] ?? null;
+        $agendaWaktuSelesai = $validated['agenda_waktu_selesai'] ?? $validated['waktu_selesai'] ?? null;
+        $agendaLokasi = $validated['agenda_lokasi'] ?? $validated['lokasi'] ?? null;
+
+        if ($isAgenda) {
+            if (empty($agendaTanggal)) {
+                throw ValidationException::withMessages([
+                    'agenda_tanggal' => ['Tanggal kegiatan wajib diisi jika agenda kalender diaktifkan.'],
+                    'tanggal' => ['Tanggal kegiatan wajib diisi jika agenda kalender diaktifkan.'],
+                ]);
+            }
+            if (empty($agendaKategori)) {
+                throw ValidationException::withMessages([
+                    'agenda_kategori' => ['Kategori kegiatan wajib dipilih jika agenda kalender diaktifkan.'],
+                    'kategori' => ['Kategori kegiatan wajib dipilih jika agenda kalender diaktifkan.'],
+                ]);
+            }
+            if (! empty($agendaWaktuMulai) && ! empty($agendaWaktuSelesai)) {
+                if (strcmp($agendaWaktuSelesai, $agendaWaktuMulai) < 0) {
+                    throw ValidationException::withMessages([
+                        'agenda_waktu_selesai' => ['Waktu selesai tidak boleh lebih awal dari waktu mulai.'],
+                        'waktu_selesai' => ['Waktu selesai tidak boleh lebih awal dari waktu mulai.'],
+                    ]);
+                }
+            }
+        }
+
         // Eksekusi atomik: Tandai old sebagai REPLACED, terbitkan new sebagai ACTIVE successor
-        $newAnnouncement = DB::transaction(function () use ($validated, $oldAnnouncement, $user, $request) {
+        $newAnnouncement = DB::transaction(function () use (
+            $validated, $oldAnnouncement, $user, $request,
+            $isAgenda, $agendaTanggal, $agendaKategori, $agendaWaktuMulai, $agendaWaktuSelesai, $agendaLokasi
+        ) {
             // 1. Kunci dan tandai pengumuman lama sebagai REPLACED
             $oldAnnouncement->is_replaced = true;
             $oldAnnouncement->save();
@@ -291,7 +425,52 @@ class KomunitasController extends Controller
                 'forum_thread_id' => $validated['forum_thread_id'] ?? null,
             ]);
 
-            // 3. Catat audit trail akuntabel
+            // 3. Kalender Synchronization Lifecycle (Update Matrix A, B, C, D)
+            $existingEvent = KalenderEvent::where('announcement_id', $oldAnnouncement->id)->first();
+
+            if ($isAgenda) {
+                if ($existingEvent) {
+                    // CASE B: V1 ON -> V2 ON (relink announcement_id ke $new->id, update metadata, event ID tetap sama)
+                    $existingEvent->update([
+                        'announcement_id' => $new->id,
+                        'scope_type' => $new->scope_type,
+                        'scope_id' => $new->scope_id,
+                        'judul' => $new->judul,
+                        'deskripsi' => $new->konten,
+                        'tanggal' => $agendaTanggal,
+                        'waktu_mulai' => $agendaWaktuMulai ?: null,
+                        'waktu_selesai' => $agendaWaktuSelesai ?: null,
+                        'lokasi' => $agendaLokasi ?: null,
+                        'kategori' => $agendaKategori,
+                    ]);
+                } else {
+                    // CASE A: V1 OFF -> V2 ON (buat KalenderEvent baru linked ke $new->id)
+                    KalenderEvent::create([
+                        'scope_type' => $new->scope_type,
+                        'scope_id' => $new->scope_id,
+                        'judul' => $new->judul,
+                        'deskripsi' => $new->konten,
+                        'tanggal' => $agendaTanggal,
+                        'waktu_mulai' => $agendaWaktuMulai ?: null,
+                        'waktu_selesai' => $agendaWaktuSelesai ?: null,
+                        'lokasi' => $agendaLokasi ?: null,
+                        'kategori' => $agendaKategori,
+                        'sumber' => KalenderEvent::SUMBER_ANNOUNCEMENT,
+                        'announcement_id' => $new->id,
+                        'is_cancelled' => false,
+                        'pembatalan_alasan' => null,
+                        'created_by' => $user->id,
+                    ]);
+                }
+            } else {
+                if ($existingEvent) {
+                    // CASE C: V1 ON -> V2 OFF (hapus KalenderEvent agar tidak ada stale event aktif di kalender)
+                    $existingEvent->delete();
+                }
+                // CASE D: V1 OFF -> V2 OFF (tidak ada aksi)
+            }
+
+            // 4. Catat audit trail akuntabel (Hanya ANNOUNCEMENT_UPDATED, tidak ada duplicate audit kalender)
             AuditLogger::log(
                 aksi: 'ANNOUNCEMENT_UPDATED',
                 targetType: 'announcements',
@@ -306,6 +485,7 @@ class KomunitasController extends Controller
                     'judul' => $new->judul,
                     'replaces_announcement_id' => $oldAnnouncement->id,
                     'is_replaced' => false,
+                    'is_agenda' => $isAgenda,
                 ],
                 alasan: !empty($validated['alasan']) ? $validated['alasan'] : null,
                 rtId: $oldAnnouncement->scope_type === 'rt' ? $oldAnnouncement->scope_id : null,
@@ -319,7 +499,7 @@ class KomunitasController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Pembaruan pengumuman resmi berhasil diterbitkan.',
-                'data' => $newAnnouncement->load(['author', 'previous', 'forumThread']),
+                'data' => $newAnnouncement->load(['author', 'previous', 'forumThread', 'kalenderEvent']),
             ], 201);
         }
 
@@ -496,6 +676,7 @@ class KomunitasController extends Controller
             'successor.comments',
             'publicActivities.rt',
             'publicActivities.rw',
+            'kalenderEvent',
         ])->findOrFail($id);
 
         $user = Auth::user();

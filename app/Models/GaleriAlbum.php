@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class GaleriAlbum extends Model
 {
@@ -17,6 +18,7 @@ class GaleriAlbum extends Model
     protected $fillable = [
         'rt_id',
         'judul',
+        'deskripsi',
         'tanggal_kegiatan',
         'created_by',
     ];
@@ -41,5 +43,10 @@ class GaleriAlbum extends Model
     public function fotos(): HasMany
     {
         return $this->hasMany(GaleriFoto::class, 'album_id');
+    }
+
+    public function coverFoto(): HasOne
+    {
+        return $this->hasOne(GaleriFoto::class, 'album_id')->oldestOfMany();
     }
 }

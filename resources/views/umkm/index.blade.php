@@ -29,9 +29,12 @@ function umkmApp() {
 
         // Status Modal
         showNoHpModal: {{ $errors->has('no_hp') ? 'true' : 'false' }},
-        showCreateModal: {{ ($errors->any() && !old('is_edit_form') && !$errors->has('no_hp') && !$errors->has('alasan_tolak')) || session('open_create_modal') ? 'true' : 'false' }},
+        showCreateModal: {{ ($errors->any() && !old('is_edit_form') && !$errors->has('no_hp') && !$errors->has('alasan_tolak') && !$errors->has('alasan_takedown')) || session('open_create_modal') ? 'true' : 'false' }},
         showEditModal: {{ $errors->any() && old('is_edit_form') ? 'true' : 'false' }},
         showDeleteModal: false,
+        showNonaktifModal: false,
+        showAktifkanModal: false,
+        showTakedownModal: {{ $errors->has('alasan_takedown') ? 'true' : 'false' }},
         showApproveModal: false,
         showRejectModal: {{ $errors->has('alasan_tolak') ? 'true' : 'false' }},
         previewImageUrl: null,
@@ -51,6 +54,7 @@ function umkmApp() {
             template_pesan_wa: @json(old('template_pesan_wa', '')),
             status: @json(old('status', '')),
             alasan_tolak: @json(old('alasan_tolak', '')),
+            alasan_takedown: @json(old('alasan_takedown', '')),
             foto_url: @json(old('foto_url', '')),
             actionUrl: @json(old('edit_id') ? route('umkm.update', old('edit_id')) : '')
         },
@@ -64,6 +68,30 @@ function umkmApp() {
             actionUrl: ''
         },
         isSubmittingDelete: false,
+
+        // Form Nonaktifkan State (Pemilik)
+        nonaktifData: {
+            id: '',
+            nama: '',
+            actionUrl: ''
+        },
+        isSubmittingNonaktif: false,
+
+        // Form Aktifkan Kembali State (Pemilik)
+        aktifkanData: {
+            id: '',
+            nama: '',
+            actionUrl: ''
+        },
+        isSubmittingAktifkan: false,
+
+        // Form Takedown State (Pengurus)
+        takedownData: {
+            id: @json(old('takedown_id', '')),
+            nama: @json(old('takedown_nama', '')),
+            actionUrl: @json(old('takedown_id') ? route('umkm.takedown', old('takedown_id')) : '')
+        },
+        isSubmittingTakedown: false,
 
         // Form Approve State
         approveData: {
@@ -101,6 +129,7 @@ function umkmApp() {
                 template_pesan_wa: item.template_pesan_wa || '',
                 status: item.status,
                 alasan_tolak: item.alasan_tolak || '',
+                alasan_takedown: item.alasan_takedown || '',
                 foto_url: item.foto_url || '',
                 actionUrl: '{{ url('/umkm') }}/' + item.id
             };
@@ -116,6 +145,36 @@ function umkmApp() {
                 actionUrl: '{{ url('/umkm') }}/' + item.id
             };
             this.showDeleteModal = true;
+        },
+
+        // Buka Modal Konfirmasi Nonaktifkan (Pemilik)
+        openNonaktifModal(item) {
+            this.nonaktifData = {
+                id: item.id,
+                nama: item.nama,
+                actionUrl: '{{ url('/umkm') }}/' + item.id + '/nonaktifkan'
+            };
+            this.showNonaktifModal = true;
+        },
+
+        // Buka Modal Konfirmasi Aktifkan Kembali (Pemilik)
+        openAktifkanModal(item) {
+            this.aktifkanData = {
+                id: item.id,
+                nama: item.nama,
+                actionUrl: '{{ url('/umkm') }}/' + item.id + '/aktifkan'
+            };
+            this.showAktifkanModal = true;
+        },
+
+        // Buka Modal Konfirmasi Takedown (Pengurus)
+        openTakedownModal(item) {
+            this.takedownData = {
+                id: item.id,
+                nama: item.nama,
+                actionUrl: '{{ url('/umkm') }}/' + item.id + '/takedown'
+            };
+            this.showTakedownModal = true;
         },
 
         // Buka Modal Konfirmasi Setujui
@@ -247,63 +306,99 @@ function umkmApp() {
     <!-- ========================================================================= -->
     <div x-show="activeTab === 'etalase'" class="space-y-6">
 
-        <!-- FILTER KATEGORI & PENCARIAN -->
+        <!-- FILTER KATEGORI, WILAYAH RT & PENCARIAN -->
         <div class="bg-white rounded-2xl border border-stone-200/90 p-4 shadow-2xs space-y-3">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <!-- Filter Kategori Tabs (Semua / Barang / Jasa) -->
                 <div class="flex items-center gap-1.5 p-1 bg-stone-100/90 rounded-xl border border-stone-200/60 w-fit">
-                    <a href="{{ route('umkm.index', array_filter(['q' => request('q')])) }}"
+                    <a href="{{ route('umkm.index', array_filter(['rt_id' => request('rt_id'), 'q' => request('q')])) }}"
                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all {{ !request('kategori') || request('kategori') === 'semua' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-500 hover:text-stone-900' }}">
                         Semua ({{ $etalase->total() }})
                     </a>
-                    <a href="{{ route('umkm.index', array_filter(['kategori' => 'barang', 'q' => request('q')])) }}"
+                    <a href="{{ route('umkm.index', array_filter(['kategori' => 'barang', 'rt_id' => request('rt_id'), 'q' => request('q')])) }}"
                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all {{ request('kategori') === 'barang' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-500 hover:text-stone-900' }}">
                         Barang
                     </a>
-                    <a href="{{ route('umkm.index', array_filter(['kategori' => 'jasa', 'q' => request('q')])) }}"
+                    <a href="{{ route('umkm.index', array_filter(['kategori' => 'jasa', 'rt_id' => request('rt_id'), 'q' => request('q')])) }}"
                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all {{ request('kategori') === 'jasa' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-500 hover:text-stone-900' }}">
                         Jasa
                     </a>
                 </div>
 
-                <!-- Search Bar (Nama & Deskripsi) -->
-                <form action="{{ route('umkm.index') }}" method="GET" class="relative flex-1 sm:max-w-xs">
-                    @if(request('kategori') && in_array(request('kategori'), ['barang', 'jasa']))
-                        <input type="hidden" name="kategori" value="{{ request('kategori') }}">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 lg:justify-end">
+                    <!-- Filter RT di dalam RW (Anti-spoofing) -->
+                    @if(isset($daftarRt) && $daftarRt->count() > 0)
+                        <form action="{{ route('umkm.index') }}" method="GET" class="flex items-center gap-1.5 shrink-0">
+                            @if(request('kategori') && in_array(request('kategori'), ['barang', 'jasa']))
+                                <input type="hidden" name="kategori" value="{{ request('kategori') }}">
+                            @endif
+                            @if(request('q'))
+                                <input type="hidden" name="q" value="{{ request('q') }}">
+                            @endif
+                            <label for="filter_rt_select" class="text-xs text-stone-500 font-semibold shrink-0">Wilayah:</label>
+                            <select id="filter_rt_select"
+                                    name="rt_id"
+                                    onchange="this.form.submit()"
+                                    class="text-xs rounded-xl bg-stone-50 border border-stone-200 py-2 px-2.5 text-stone-800 font-semibold focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer">
+                                <option value="semua" {{ request('rt_id', 'semua') === 'semua' ? 'selected' : '' }}>
+                                    Semua RT (Se-RW)
+                                </option>
+                                @foreach($daftarRt as $rtItem)
+                                    <option value="{{ $rtItem->id }}" {{ (string) request('rt_id') === (string) $rtItem->id ? 'selected' : '' }}>
+                                        RT 0{{ $rtItem->nomor_rt }} ({{ $rtItem->nama }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </form>
                     @endif
-                    <div class="relative">
-                        <input type="text"
-                               name="q"
-                               value="{{ request('q') }}"
-                               placeholder="Cari produk atau jasa warga..."
-                               class="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-stone-50 border border-stone-200 focus:bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-all text-stone-900 placeholder:text-stone-400">
-                        <svg class="w-4 h-4 text-stone-400 absolute left-3 top-2.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
-                        @if(request('q'))
-                            <a href="{{ route('umkm.index', array_filter(['kategori' => request('kategori')])) }}" class="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-700" title="Hapus pencarian">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                            </a>
+
+                    <!-- Search Bar (Nama & Deskripsi) -->
+                    <form action="{{ route('umkm.index') }}" method="GET" class="relative sm:max-w-xs flex-1">
+                        @if(request('kategori') && in_array(request('kategori'), ['barang', 'jasa']))
+                            <input type="hidden" name="kategori" value="{{ request('kategori') }}">
                         @endif
-                    </div>
-                </form>
+                        @if(request('rt_id') && request('rt_id') !== 'semua')
+                            <input type="hidden" name="rt_id" value="{{ request('rt_id') }}">
+                        @endif
+                        <div class="relative">
+                            <input type="text"
+                                   name="q"
+                                   value="{{ request('q') }}"
+                                   placeholder="Cari produk atau jasa warga..."
+                                   class="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-stone-50 border border-stone-200 focus:bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-all text-stone-900 placeholder:text-stone-400">
+                            <svg class="w-4 h-4 text-stone-400 absolute left-3 top-2.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            @if(request('q'))
+                                <a href="{{ route('umkm.index', array_filter(['kategori' => request('kategori'), 'rt_id' => request('rt_id')])) }}" class="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-700" title="Hapus pencarian">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </a>
+                            @endif
+                        </div>
+                    </form>
+                </div>
             </div>
 
             <!-- Result Summary & Active Filters Indicator -->
             <div class="pt-2 border-t border-stone-100 flex flex-wrap items-center justify-between text-xs text-stone-500 gap-2">
                 <div>
                     @if($etalase->total() > 0)
-                        <span>Menampilkan <strong>{{ $etalase->firstItem() }}–{{ $etalase->lastItem() }}</strong> dari <strong>{{ $etalase->total() }}</strong> usaha warga</span>
+                        <span>Menampilkan <strong>{{ $etalase->firstItem() }}–{{ $etalase->lastItem() }}</strong> dari <strong>{{ $etalase->total() }}</strong> usaha warga se-RW</span>
                     @else
                         <span>Tidak ada usaha yang ditampilkan</span>
                     @endif
                 </div>
 
-                @if(request('q') || request('kategori'))
+                @if(request('q') || request('kategori') || (request('rt_id') && request('rt_id') !== 'semua'))
                     <div class="flex items-center gap-1.5">
                         <span class="text-stone-400">Filter aktif:</span>
+                        @if(request('rt_id') && request('rt_id') !== 'semua')
+                            <span class="px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 font-semibold text-[11px]">
+                                RT: {{ $daftarRt->firstWhere('id', request('rt_id'))?->nomor_rt ? 'RT 0' . $daftarRt->firstWhere('id', request('rt_id'))->nomor_rt : request('rt_id') }}
+                            </span>
+                        @endif
                         @if(request('kategori'))
                             <span class="px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 font-semibold text-[11px] capitalize">
                                 {{ request('kategori') }}
@@ -370,9 +465,16 @@ function umkmApp() {
                         <!-- Detail Card Body -->
                         <div class="p-4 flex-1 flex flex-col justify-between">
                             <div>
-                                <h3 class="font-bold text-stone-900 text-sm line-clamp-1 group-hover:text-emerald-700 transition-colors" title="{{ $listing->nama }}">
-                                    {{ $listing->nama }}
-                                </h3>
+                                <div class="flex items-start justify-between gap-2">
+                                    <h3 class="font-bold text-stone-900 text-sm line-clamp-1 group-hover:text-emerald-700 transition-colors" title="{{ $listing->nama }}">
+                                        {{ $listing->nama }}
+                                    </h3>
+                                    @if(auth()->check() && (int) auth()->id() === (int) $listing->user_id)
+                                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                                            Usaha Anda
+                                        </span>
+                                    @endif
+                                </div>
 
                                 <p class="text-xs text-stone-500 mt-1 flex items-center gap-1.5 truncate">
                                     <svg class="w-3.5 h-3.5 text-stone-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -386,7 +488,7 @@ function umkmApp() {
                                 </p>
                             </div>
 
-                            <!-- Card Footer: Harga & CTA WhatsApp -->
+                            <!-- Card Footer: Harga & CTA WhatsApp / Takedown -->
                             <div class="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
                                 <div class="flex items-baseline">
                                     @if($listing->kategori === 'barang' && $listing->harga !== null)
@@ -400,20 +502,34 @@ function umkmApp() {
                                     @endif
                                 </div>
 
-                                @if($listing->whatsapp_link)
-                                    <a href="{{ $listing->whatsapp_link }}"
-                                       target="_blank"
-                                       rel="noopener noreferrer"
-                                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-semibold text-xs transition-all shadow-2xs shrink-0 cursor-pointer"
-                                       title="Hubungi {{ $listing->user?->nama ?? 'Penjual' }} via WhatsApp">
-                                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                                            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
-                                        </svg>
-                                        <span>Hubungi Penjual</span>
-                                    </a>
-                                @else
-                                    <span class="text-[11px] text-stone-400 italic">Kontak belum tersedia</span>
-                                @endif
+                                <div class="flex items-center gap-1.5">
+                                    @if(auth()->check() && \App\Services\ScopeAuthorizer::canTakedownUmkm(auth()->user(), $listing))
+                                        <button type="button"
+                                                @click="openTakedownModal({{ json_encode($listing) }})"
+                                                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer"
+                                                title="Takedown listing usaha ini dari etalase warga">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                            </svg>
+                                            <span class="hidden sm:inline">Takedown</span>
+                                        </button>
+                                    @endif
+
+                                    @if($listing->whatsapp_link)
+                                        <a href="{{ $listing->whatsapp_link }}"
+                                           target="_blank"
+                                           rel="noopener noreferrer"
+                                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-semibold text-xs transition-all shadow-2xs shrink-0 cursor-pointer"
+                                           title="Hubungi {{ $listing->user?->nama ?? 'Penjual' }} via WhatsApp">
+                                            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                                            </svg>
+                                            <span>Hubungi Penjual</span>
+                                        </a>
+                                    @else
+                                        <span class="text-[11px] text-stone-400 italic">Kontak belum tersedia</span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -474,7 +590,7 @@ function umkmApp() {
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
-                <span>+ Tambah Produk / Jasa</span>
+                <span> Tambah Produk / Jasa</span>
             </button>
         </div>
 
@@ -529,6 +645,16 @@ function umkmApp() {
                                         <svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                         <span>Disetujui &amp; Tayang</span>
                                     </span>
+                                @elseif($item->status === \App\Models\UmkmListing::STATUS_NONAKTIF)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stone-200 text-stone-800 border border-stone-300 shadow-xs">
+                                        <svg class="w-3 h-3 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span>Nonaktif</span>
+                                    </span>
+                                @elseif($item->status === \App\Models\UmkmListing::STATUS_DITAKEDOWN)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-300 shadow-xs">
+                                        <svg class="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                        <span>Di-takedown</span>
+                                    </span>
                                 @elseif($item->status === \App\Models\UmkmListing::STATUS_DITOLAK)
                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-900 border border-rose-300 shadow-xs">
                                         <svg class="w-3 h-3 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -561,7 +687,7 @@ function umkmApp() {
                                     {{ $item->deskripsi }}
                                 </p>
 
-                                <!-- ALASAN PENOLAKAN TRANSPARAN (Jika Ditolak) -->
+                                <!-- ALASAN PENOLAKAN / TAKEDOWN TRANSPARAN -->
                                 @if($item->status === \App\Models\UmkmListing::STATUS_DITOLAK)
                                     <div class="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-1">
                                         <div class="flex items-center gap-1.5 font-bold text-rose-800 text-[11px]">
@@ -577,6 +703,25 @@ function umkmApp() {
                                             Silakan edit dan kirimkan perbaikan agar dapat ditinjau ulang.
                                         </p>
                                     </div>
+                                @elseif($item->status === \App\Models\UmkmListing::STATUS_DITAKEDOWN)
+                                    <div class="mt-3 p-3 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs space-y-1">
+                                        <div class="flex items-center gap-1.5 font-bold text-purple-800 text-[11px]">
+                                            <svg class="w-3.5 h-3.5 shrink-0 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                            </svg>
+                                            <span>Alasan Takedown Pengurus:</span>
+                                        </div>
+                                        <p class="text-xs text-purple-950 font-medium pl-5 leading-relaxed">
+                                            "{{ $item->alasan_takedown }}"
+                                        </p>
+                                        <p class="text-[10px] text-purple-700 pl-5 pt-0.5">
+                                            Usaha ini ditarik pengurus. Silakan perbaiki data melalui tombol di bawah untuk mengajukan kurasi ulang.
+                                        </p>
+                                    </div>
+                                @elseif($item->status === \App\Models\UmkmListing::STATUS_NONAKTIF)
+                                    <p class="text-[10px] text-stone-500 mt-2 italic">
+                                        * Usaha sedang nonaktif (ditarik dari etalase). Klik "Aktifkan" untuk mengajukan kurasi ulang ke RT.
+                                    </p>
                                 @elseif($item->status === \App\Models\UmkmListing::STATUS_DISETUJUI)
                                     <p class="text-[10px] text-stone-400 mt-2 italic">
                                         * Mengubah data substantif akan mengirim ulang usaha ini untuk verifikasi pengurus.
@@ -588,16 +733,57 @@ function umkmApp() {
                                 @endif
                             </div>
 
-                            <!-- Card Footer: Aksi Edit & Hapus -->
-                            <div class="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
-                                <button type="button"
-                                        @click="openEditModal({{ json_encode($item) }})"
-                                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl {{ $item->status === \App\Models\UmkmListing::STATUS_DITOLAK ? 'bg-amber-600 hover:bg-amber-700 text-white font-bold' : 'bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold' }} text-xs transition-colors cursor-pointer">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                    </svg>
-                                    <span>{{ $item->status === \App\Models\UmkmListing::STATUS_DITOLAK ? 'Edit & Ajukan Ulang' : 'Edit' }}</span>
-                                </button>
+                            <!-- Card Footer: Aksi Kelola Listing -->
+                            <div class="mt-4 pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-1.5">
+                                    @if($item->status === \App\Models\UmkmListing::STATUS_DITAKEDOWN)
+                                        <button type="button"
+                                                @click="openEditModal({{ json_encode($item) }})"
+                                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors cursor-pointer">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                            </svg>
+                                            <span>Perbaiki &amp; Ajukan Ulang</span>
+                                        </button>
+                                    @elseif($item->status === \App\Models\UmkmListing::STATUS_NONAKTIF)
+                                        <button type="button"
+                                                @click="openAktifkanModal({{ json_encode($item) }})"
+                                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                                                title="Ajukan pengaktifan kembali ke pengurus RT">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            <span>Aktifkan Kembali</span>
+                                        </button>
+                                        <button type="button"
+                                                @click="openEditModal({{ json_encode($item) }})"
+                                                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs transition-colors cursor-pointer">
+                                            <span>Edit</span>
+                                        </button>
+                                    @else
+                                        <button type="button"
+                                                @click="openEditModal({{ json_encode($item) }})"
+                                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl {{ $item->status === \App\Models\UmkmListing::STATUS_DITOLAK ? 'bg-amber-600 hover:bg-amber-700 text-white font-bold' : 'bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold' }} text-xs transition-colors cursor-pointer">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                            </svg>
+                                            <span>{{ $item->status === \App\Models\UmkmListing::STATUS_DITOLAK ? 'Edit & Ajukan Ulang' : 'Edit' }}</span>
+                                        </button>
+
+                                        @if(in_array($item->status, [\App\Models\UmkmListing::STATUS_DISETUJUI, \App\Models\UmkmListing::STATUS_MENUNGGU], true))
+                                            <button type="button"
+                                                    @click="openNonaktifModal({{ json_encode($item) }})"
+                                                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer"
+                                                    title="Tarik / nonaktifkan sementara usaha ini dari etalase">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                <span>Nonaktifkan</span>
+                                            </button>
+                                        @endif
+                                    @endif
+                                </div>
 
                                 <button type="button"
                                         @click="openDeleteModal({{ json_encode($item) }})"
@@ -606,7 +792,7 @@ function umkmApp() {
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                     </svg>
-                                    <span>Hapus</span>
+                                    <span class="sr-only sm:not-sr-only">Hapus</span>
                                 </button>
                             </div>
                         </div>
@@ -1106,6 +1292,16 @@ function umkmApp() {
                 </div>
             </template>
 
+            <template x-if="editData.status === 'DITAKEDOWN'">
+                <div class="mt-4 p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs space-y-1">
+                    <span class="font-bold text-purple-800 block">Alasan Takedown Pengurus:</span>
+                    <p class="font-medium text-purple-950" x-text="'&ldquo;' + (editData.alasan_takedown || 'Listing dinonaktifkan oleh pengurus') + '&rdquo;'"></p>
+                    <span class="text-[10px] text-purple-700 block pt-1">
+                        Perbaiki informasi atau foto produk di bawah ini. Setelah Anda menyimpan perbaikan, status listing akan kembali ke <strong>Menunggu Verifikasi</strong> untuk dikurasi ulang oleh pengurus RT.
+                    </span>
+                </div>
+            </template>
+
             <!-- Error Validasi Server Edit -->
             @if($errors->any() && old('is_edit_form'))
                 <div class="mt-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
@@ -1252,7 +1448,7 @@ function umkmApp() {
                     <button type="submit"
                             :disabled="isSubmittingEdit"
                             class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50">
-                        <span x-text="isSubmittingEdit ? 'Menyimpan...' : (editData.status === 'DITOLAK' ? 'Kirim Ulang Revisi' : 'Simpan Perubahan')"></span>
+                        <span x-text="isSubmittingEdit ? 'Menyimpan...' : (editData.status === 'DITOLAK' ? 'Kirim Ulang Revisi' : (editData.status === 'DITAKEDOWN' ? 'Ajukan Ulang Kurasi' : 'Simpan Perubahan'))"></span>
                     </button>
                 </div>
             </form>
@@ -1305,6 +1501,185 @@ function umkmApp() {
                     <span x-text="isSubmittingDelete ? 'Menghapus...' : 'Ya, Hapus'"></span>
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 4A: KONFIRMASI NONAKTIFKAN LISTING (Pemilik Usaha)                 -->
+    <!-- ========================================================================= -->
+    <div x-show="showNonaktifModal"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs"
+         role="dialog"
+         aria-modal="true"
+         style="display: none;">
+        <div @click.away="showNonaktifModal = false"
+             x-show="showNonaktifModal"
+             x-transition:enter="ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-stone-100 text-left relative z-10">
+
+            <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+
+            <div class="text-center space-y-2">
+                <h3 class="text-base font-bold text-stone-900">Tarik Usaha dari Etalase?</h3>
+                <p class="text-xs text-stone-500 leading-relaxed">
+                    Usaha <strong class="text-stone-800" x-text="'&ldquo;' + nonaktifData.nama + '&rdquo;'"></strong> akan dinonaktifkan sementara dan tidak dapat dilihat oleh tetangga di etalase warga. Anda dapat mengaktifkannya kembali sewaktu-waktu (wajib kurasi ulang RT).
+                </p>
+            </div>
+
+            <form :action="nonaktifData.actionUrl" method="POST" @submit="isSubmittingNonaktif = true" class="mt-5 flex items-center justify-center gap-2">
+                @csrf
+                <button type="button"
+                        @click="showNonaktifModal = false"
+                        class="w-1/2 px-4 py-2 rounded-xl text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer text-center">
+                    Batal
+                </button>
+                <button type="submit"
+                        :disabled="isSubmittingNonaktif"
+                        class="w-1/2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer text-center disabled:opacity-50">
+                    <span x-text="isSubmittingNonaktif ? 'Memproses...' : 'Ya, Nonaktifkan'"></span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 4B: KONFIRMASI AKTIFKAN KEMBALI LISTING (Pemilik Usaha)            -->
+    <!-- ========================================================================= -->
+    <div x-show="showAktifkanModal"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs"
+         role="dialog"
+         aria-modal="true"
+         style="display: none;">
+        <div @click.away="showAktifkanModal = false"
+             x-show="showAktifkanModal"
+             x-transition:enter="ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-stone-100 text-left relative z-10">
+
+            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+
+            <div class="text-center space-y-2">
+                <h3 class="text-base font-bold text-stone-900">Aktifkan Kembali Usaha?</h3>
+                <p class="text-xs text-stone-500 leading-relaxed">
+                    Pengajuan usaha <strong class="text-stone-800" x-text="'&ldquo;' + aktifkanData.nama + '&rdquo;'"></strong> akan dikirimkan kembali ke antrean <strong>Kurasi Pengurus RT</strong> untuk diverifikasi sebelum tayang kembali di etalase warga.
+                </p>
+            </div>
+
+            <form :action="aktifkanData.actionUrl" method="POST" @submit="isSubmittingAktifkan = true" class="mt-5 flex items-center justify-center gap-2">
+                @csrf
+                <button type="button"
+                        @click="showAktifkanModal = false"
+                        class="w-1/2 px-4 py-2 rounded-xl text-stone-700 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer text-center">
+                    Batal
+                </button>
+                <button type="submit"
+                        :disabled="isSubmittingAktifkan"
+                        class="w-1/2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer text-center disabled:opacity-50">
+                    <span x-text="isSubmittingAktifkan ? 'Mengajukan...' : 'Ya, Ajukan Aktif'"></span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 4C: TAKEDOWN LISTING OLEH PENGURUS (RT / RW / Super Admin)          -->
+    <!-- ========================================================================= -->
+    <div x-show="showTakedownModal"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs"
+         role="dialog"
+         aria-modal="true"
+         style="display: none;">
+        <div @click.away="showTakedownModal = false"
+             x-show="showTakedownModal"
+             x-transition:enter="ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-stone-100 text-left relative z-10">
+
+            <div class="flex items-center justify-between pb-3 border-b border-stone-100">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-stone-900">Takedown Listing Usaha</h3>
+                        <p class="text-[11px] text-stone-400">Listing: <strong class="text-stone-700" x-text="takedownData.nama"></strong></p>
+                    </div>
+                </div>
+                <button type="button" @click="showTakedownModal = false" class="text-stone-400 hover:text-stone-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="mt-4 space-y-3 text-xs text-stone-600 leading-relaxed">
+                <p>Listing ini akan langsung ditarik dari etalase se-RW dan dicatat di Audit Trail. Pemilik usaha wajib merevisi listing sebelum dapat diajukan kurasi ulang.</p>
+
+                @if($errors->has('alasan_takedown'))
+                    <div class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+                        {{ $errors->first('alasan_takedown') }}
+                    </div>
+                @endif
+
+                <form :action="takedownData.actionUrl" method="POST" @submit="isSubmittingTakedown = true" class="space-y-4 pt-1">
+                    @csrf
+                    <input type="hidden" name="takedown_id" :value="takedownData.id">
+                    <input type="hidden" name="takedown_nama" :value="takedownData.nama">
+
+                    <div>
+                        <label for="takedown_alasan" class="block font-bold text-stone-800 text-xs mb-1">
+                            Alasan Takedown Resmi <span class="text-rose-600">*</span>
+                        </label>
+                        <textarea id="takedown_alasan"
+                                  name="alasan_takedown"
+                                  rows="3"
+                                  required
+                                  minlength="5"
+                                  maxlength="1000"
+                                  placeholder="Contoh: Mengandung promosi produk terlarang atau keluhan warga sekitar..."
+                                  class="w-full px-3.5 py-2 text-xs rounded-xl bg-stone-50 border border-stone-200 focus:bg-white focus:border-rose-600 focus:ring-1 focus:ring-rose-600 transition-all text-stone-900 leading-relaxed">{{ old('alasan_takedown') }}</textarea>
+                        <span class="text-[11px] text-stone-400 block mt-1">Minimal 5 karakter. Alasan ini akan tercatat di log audit dan diberitahukan transparan kepada pemilik.</span>
+                    </div>
+
+                    <div class="pt-2 flex items-center justify-end gap-2 border-t border-stone-100">
+                        <button type="button"
+                                @click="showTakedownModal = false"
+                                class="px-3.5 py-2 rounded-xl text-stone-600 hover:bg-stone-100 text-xs font-semibold transition-colors cursor-pointer">
+                            Batal
+                        </button>
+                        <button type="submit"
+                                :disabled="isSubmittingTakedown"
+                                class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50">
+                            <span x-text="isSubmittingTakedown ? 'Memproses...' : 'Takedown Sekarang'"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

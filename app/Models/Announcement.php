@@ -79,6 +79,14 @@ class Announcement extends Model
     }
 
     /**
+     * Agenda Kalender yang terhubung dengan pengumuman ini (opsional).
+     */
+    public function kalenderEvent(): HasOne
+    {
+        return $this->hasOne(KalenderEvent::class, 'announcement_id');
+    }
+
+    /**
      * Pengurus yang menonaktifkan pengumuman ini.
      */
     public function deactivator(): BelongsTo

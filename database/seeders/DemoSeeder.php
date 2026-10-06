@@ -8,6 +8,8 @@ use App\Models\ChatMessage;
 use App\Models\ForumCategory;
 use App\Models\ForumPost;
 use App\Models\ForumThread;
+use App\Models\GaleriAlbum;
+use App\Models\GaleriFoto;
 use App\Models\KasTransaksi;
 use App\Models\Klien;
 use App\Models\Rt;
@@ -20,6 +22,7 @@ use App\Models\UserRole;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class DemoSeeder extends Seeder
 {
@@ -380,5 +383,107 @@ class DemoSeeder extends Seeder
             'template_pesan_wa' => null,
             'status' => 'MENUNGGU',
         ]);
+
+        // 16. Sample Galeri Kegiatan Warga (RT 05 Sekeloa)
+        $this->seedGaleri($rt, $ketuaRt);
+    }
+
+    /**
+     * Seed data Galeri Kegiatan Warga (RT 05 Sekeloa) secara idempotent.
+     */
+    public function seedGaleri(Rt $rt, User $ketuaRt): void
+    {
+        $demoAlbums = [
+            [
+                'judul' => 'Kerja Bakti Lingkungan & Penataan Drainase',
+                'deskripsi' => 'Gotong royong warga RT 05 membersihkan saluran drainase utama dan perapihan tanaman pinggir jalan mengantisipasi musim hujan.',
+                'tanggal_kegiatan' => Carbon::parse('2026-10-04'),
+                'foto_count' => 3,
+                'color' => [16, 149, 106], // Emerald/Green theme
+                'label' => 'Kerja Bakti RT 05',
+            ],
+            [
+                'judul' => 'Peringatan HUT RI & Lomba Warga RT 05',
+                'deskripsi' => 'Semarak kemerdekaan Republik Indonesia dengan berbagai perlombaan anak-anak, ibu-ibu, dan malam pentas seni warga RT 05.',
+                'tanggal_kegiatan' => Carbon::parse('2026-08-17'),
+                'foto_count' => 4,
+                'color' => [190, 40, 40], // Red/Crimson theme
+                'label' => 'HUT RI RT 05',
+            ],
+            [
+                'judul' => 'Kajian Ramadhan & Buka Puasa Bersama',
+                'deskripsi' => 'Kegiatan silaturahmi warga, tausiyah keagamaan, serta buka puasa bersama seluruh warga RT 05 bertempat di balai warga.',
+                'tanggal_kegiatan' => Carbon::parse('2026-03-22'),
+                'foto_count' => 2,
+                'color' => [30, 115, 120], // Teal theme
+                'label' => 'Ramadhan RT 05',
+            ],
+            [
+                'judul' => 'Pelayanan Posyandu Balita & Lansia Melati',
+                'deskripsi' => 'Pemeriksaan tumbuh kembang balita, imunisasi rutin, dan cek tekanan darah berkala untuk warga lansia RT 05 Sekeloa.',
+                'tanggal_kegiatan' => Carbon::parse('2026-09-15'),
+                'foto_count' => 3,
+                'color' => [45, 95, 170], // Blue theme
+                'label' => 'Posyandu Melati RT 05',
+            ],
+        ];
+
+        foreach ($demoAlbums as $albumData) {
+            $album = GaleriAlbum::withoutGlobalScopes()->firstOrCreate(
+                [
+                    'rt_id' => $rt->id,
+                    'judul' => $albumData['judul'],
+                ],
+                [
+                    'deskripsi' => $albumData['deskripsi'],
+                    'tanggal_kegiatan' => $albumData['tanggal_kegiatan'],
+                    'created_by' => $ketuaRt->id,
+                ]
+            );
+
+            // Buat foto dokumentasi lokal valid jika album belum memiliki foto
+            $existingFotoCount = GaleriFoto::where('album_id', $album->id)->count();
+            if ($existingFotoCount === 0) {
+                for ($f = 1; $f <= $albumData['foto_count']; $f++) {
+                    $fileName = "demo_{$album->id}_{$f}.jpg";
+                    $storagePath = "galeri/{$album->id}/{$fileName}";
+
+                    if (! Storage::disk('public')->exists($storagePath)) {
+                        if (extension_loaded('gd')) {
+                            $image = imagecreatetruecolor(800, 600);
+                            [$r, $g, $b] = $albumData['color'];
+                            $bgColor = imagecolorallocate($image, $r, $g, $b);
+                            $textColor = imagecolorallocate($image, 255, 255, 255);
+                            imagefill($image, 0, 0, $bgColor);
+
+                            $title = "{$albumData['label']} - Dokumentasi #{$f}";
+                            $subtitle = "Warga Digital RT 05 Sekeloa • " . $albumData['tanggal_kegiatan']->format('d M Y');
+                            imagestring($image, 5, 30, 30, $title, $textColor);
+                            imagestring($image, 4, 30, 60, $subtitle, $textColor);
+
+                            ob_start();
+                            imagejpeg($image, null, 85);
+                            $imageBinary = ob_get_clean();
+                            imagedestroy($image);
+                        } else {
+                            // Fallback jika gd tidak tersedia
+                            $imageBinary = "fake-jpeg-content-{$f}";
+                        }
+
+                        Storage::disk('public')->put($storagePath, $imageBinary);
+                    }
+
+                    GaleriFoto::firstOrCreate(
+                        [
+                            'album_id' => $album->id,
+                            'foto_url' => $storagePath,
+                        ],
+                        [
+                            'uploaded_by' => $ketuaRt->id,
+                        ]
+                    );
+                }
+            }
+        }
     }
 }

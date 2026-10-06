@@ -4,6 +4,8 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\FirstTimePasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GaleriController;
+use App\Http\Controllers\KalenderController;
 use App\Http\Controllers\KasController;
 use App\Http\Controllers\KomunitasController;
 use App\Http\Controllers\SuratController;
@@ -103,8 +105,30 @@ Route::middleware('auth')->group(function () {
         Route::match(['post', 'patch'], '/no-hp', [UmkmController::class, 'updateNoHp'])->name('updateNoHp');
         Route::match(['put', 'patch'], '/{id}', [UmkmController::class, 'update'])->whereNumber('id')->name('update');
         Route::delete('/{id}', [UmkmController::class, 'destroy'])->whereNumber('id')->name('destroy');
+        Route::post('/{id}/nonaktifkan', [UmkmController::class, 'nonaktifkan'])->whereNumber('id')->name('nonaktifkan');
+        Route::post('/{id}/aktifkan', [UmkmController::class, 'aktifkan'])->whereNumber('id')->name('aktifkan');
+        Route::post('/{id}/takedown', [UmkmController::class, 'takedown'])->whereNumber('id')->name('takedown');
         Route::post('/{id}/approve', [UmkmController::class, 'approve'])->whereNumber('id')->name('approve');
         Route::post('/{id}/tolak', [UmkmController::class, 'tolak'])->whereNumber('id')->name('tolak');
+    });
+
+    // Fitur 6: Kalender Warga (Month View, Agenda Terdekat & Standalone CRUD)
+    Route::prefix('kalender')->name('kalender.')->group(function () {
+        Route::get('/', [KalenderController::class, 'index'])->name('index');
+        Route::post('/', [KalenderController::class, 'store'])->name('store');
+        Route::match(['put', 'patch'], '/{id}', [KalenderController::class, 'update'])->whereNumber('id')->name('update');
+        Route::delete('/{id}', [KalenderController::class, 'destroy'])->whereNumber('id')->name('destroy');
+    });
+
+    // Fitur 7: Galeri Kegiatan Warga (Album & Foto Dokumentasi)
+    Route::prefix('galeri')->name('galeri.')->group(function () {
+        Route::get('/', [GaleriController::class, 'index'])->name('index');
+        Route::post('/', [GaleriController::class, 'storeAlbum'])->name('album.store');
+        Route::get('/{album}', [GaleriController::class, 'show'])->whereNumber('album')->name('show');
+        Route::match(['put', 'patch'], '/{album}', [GaleriController::class, 'updateAlbum'])->whereNumber('album')->name('album.update');
+        Route::delete('/{album}', [GaleriController::class, 'destroyAlbum'])->whereNumber('album')->name('album.destroy');
+        Route::post('/{album}/fotos', [GaleriController::class, 'storeFotos'])->whereNumber('album')->name('foto.store');
+        Route::delete('/{album}/fotos/{foto}', [GaleriController::class, 'destroyFoto'])->whereNumber('album')->whereNumber('foto')->name('foto.destroy');
     });
 });
 

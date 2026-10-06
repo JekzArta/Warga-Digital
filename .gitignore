@@ -29,3 +29,4 @@ Thumbs.db
 # Exclude docs, spec, context, design, diagrams, notes, & prompt
 /docs
 /prompt-*
+*.zip

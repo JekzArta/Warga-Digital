@@ -214,8 +214,8 @@ class ScopeAuthorizer
             return false;
         }
 
-        // Pengurus RT (Ketua RT, Wakil RT, Sekretaris, Bendahara) boleh mengelola
-        if ($user->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris', 'bendahara'])) {
+        // Pengurus RT (Ketua RT, Wakil RT, Sekretaris) boleh mengelola
+        if ($user->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris'])) {
             return true;
         }
 
@@ -225,6 +225,49 @@ class ScopeAuthorizer
                 return true;
             }
             return (int) $user->id === $listingOwnerId;
+        }
+
+        return false;
+    }
+
+    /**
+     * Memeriksa apakah user berwenang men-takedown listing UMKM.
+     * Sesuai aturan:
+     * - Warga & Bendahara: DILARANG (false)
+     * - Pengurus RT (Sekretaris, Ketua RT, Wakil RT): Boleh di RT wilayahnya
+     * - Ketua RW: Boleh lintas RT di dalam RW binaannya
+     * - Super Admin: Akses global
+     */
+    public static function canTakedownUmkm(?User $user, \App\Models\UmkmListing $listing): bool
+    {
+        if (! $user || $user->status !== 'aktif') {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        // Bendahara dan Warga biasa tidak berwenang men-takedown
+        if ($user->hasRole('bendahara') && ! $user->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris', 'ketua_rw'])) {
+            return false;
+        }
+
+        if ($user->hasRole('warga') && ! $user->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris', 'ketua_rw'])) {
+            return false;
+        }
+
+        $rtId = (int) $listing->rt_id;
+        $listingRwId = $listing->rt?->rw_id ?? \App\Models\Rt::where('id', $rtId)->value('rw_id');
+
+        // Pengurus RT (Ketua RT, Wakil RT, Sekretaris) berwenang di RT yang sama
+        if ($user->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris'])) {
+            return self::canAccess($user, 'rt', $rtId);
+        }
+
+        // Ketua RW berwenang lintas RT di dalam RW yang sama
+        if ($user->hasRole('ketua_rw')) {
+            return $listingRwId !== null && self::canAccess($user, 'rw', $listingRwId);
         }
 
         return false;
@@ -260,4 +303,112 @@ class ScopeAuthorizer
         // Hanya Sekretaris, Ketua RT, dan Wakil RT
         return $user->hasRole(['sekretaris', 'ketua_rt', 'wakil_rt']);
     }
+
+    /**
+     * Memeriksa apakah user berwenang melihat agenda Kalender pada scope wilayah tertentu.
+     * Sesuai aturan:
+     * - Warga & Pengurus RT: boleh melihat kalender RT miliknya sendiri dan kalender RW-nya
+     * - Ketua RW: boleh melihat kalender RW dan kalender RT mana pun di bawah RW-nya
+     * - Super Admin: akses global
+     */
+    public static function canViewKalender(?User $user, string $scopeType, int|string $scopeId): bool
+    {
+        if (! $user || $user->status !== 'aktif') {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        $scopeType = strtolower($scopeType);
+        $scopeId = (int) $scopeId;
+
+        // Jika user adalah Ketua RW yang mengecek RT di bawahnya
+        if ($user->hasRole('ketua_rw') && $user->rw_id && $scopeType === 'rt') {
+            $rt = \App\Models\Rt::find($scopeId);
+            return $rt !== null && (int) $rt->rw_id === (int) $user->rw_id;
+        }
+
+        return self::canAccess($user, $scopeType, $scopeId);
+    }
+
+    /**
+     * Memeriksa apakah user berwenang mengelola (tambah/edit/hapus) agenda Kalender.
+     * Sesuai keputusan desain:
+     * - Scope RT: Ketua RT, Wakil RT, Sekretaris
+     * - Scope RW: Ketua RW
+     * - Warga, Bendahara: Dilarang (Read-Only)
+     * - Super Admin: Akses global
+     */
+    public static function canManageKalender(?User $user, string $scopeType, int|string $scopeId): bool
+    {
+        if (! self::canAccess($user, $scopeType, $scopeId)) {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        $scopeType = strtolower($scopeType);
+
+        if ($scopeType === 'rt') {
+            return $user->hasRole(['ketua_rt', 'wakil_rt', 'sekretaris']);
+        }
+
+        if ($scopeType === 'rw') {
+            return $user->hasRole('ketua_rw');
+        }
+
+        return false;
+    }
+
+    /**
+     * Memeriksa apakah user berwenang melihat album dan foto galeri kegiatan RT tertentu.
+     * Sesuai matriks RBAC SDD §3.2 & TenantScope:
+     * - Warga, Bendahara, Sekretaris, Wakil RT, Ketua RT: hanya boleh melihat RT miliknya sendiri
+     * - Ketua RW: boleh melihat galeri seluruh RT yang berada di bawah RW binaannya
+     * - Super Admin: global access
+     * - Cross-tenant: ditolak
+     */
+    public static function canViewGaleri(?User $user, int $rtId): bool
+    {
+        if (! $user || $user->status !== 'aktif') {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        if ($user->hasRole('ketua_rw') && $user->rw_id) {
+            $rt = \App\Models\Rt::find($rtId);
+            return $rt !== null && (int) $rt->rw_id === (int) $user->rw_id;
+        }
+
+        return self::canAccess($user, 'rt', $rtId);
+    }
+
+    /**
+     * Memeriksa apakah user berwenang mengelola (buat/edit/hapus album & upload/hapus foto) galeri RT.
+     * Sesuai matriks RBAC SDD §3.2:
+     * - Scope RT: Sekretaris, Ketua RT, Wakil RT pada RT miliknya sendiri
+     * - Warga, Bendahara, dan Ketua RW: Dilarang (Read-Only)
+     * - Super Admin: Global access
+     * - Cross-tenant: Ditolak
+     */
+    public static function canManageGaleri(?User $user, int $rtId): bool
+    {
+        if (! self::canAccess($user, 'rt', $rtId)) {
+            return false;
+        }
+
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        return $user->hasRole(['sekretaris', 'ketua_rt', 'wakil_rt']);
+    }
 }
+

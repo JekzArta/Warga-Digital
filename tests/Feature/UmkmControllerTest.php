@@ -1035,4 +1035,325 @@ class UmkmControllerTest extends TestCase
         // Ownership listing tetap milik warga 1
         $this->assertEquals($this->warga1->id, $listing->fresh()->user_id);
     }
+
+    // =========================================================================
+    // 9. LIFECYCLE MODERASI: NONAKTIF, REAKTIVASI KURASI RT, & TAKEDOWN PENGURUS (Items 51 - 62)
+    // =========================================================================
+
+    public function test_51_pemilik_dapat_menonaktifkan_listing_miliknya_sendiri(): void
+    {
+        $listing = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => 'barang',
+            'nama' => 'Kue Nastar Warga 1',
+            'deskripsi' => 'Nastar keju gurih',
+            'harga' => 60000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        $response = $this->actingAs($this->warga1)->post(route('umkm.nonaktifkan', $listing->id));
+
+        $response->assertRedirect(route('umkm.index'));
+        $this->assertEquals(UmkmListing::STATUS_NONAKTIF, $listing->fresh()->status);
+    }
+
+    public function test_52_non_pemilik_dan_warga_lain_dilarang_menonaktifkan_listing_orang_lain(): void
+    {
+        $listing = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => 'barang',
+            'nama' => 'Kue Nastar Warga 1',
+            'deskripsi' => 'Nastar keju gurih',
+            'harga' => 60000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        $response = $this->actingAs($this->warga2)->post(route('umkm.nonaktifkan', $listing->id));
+
+        $response->assertStatus(403);
+        $this->assertEquals(UmkmListing::STATUS_DISETUJUI, $listing->fresh()->status);
+    }
+
+    public function test_53_pemilik_dapat_mengaktifkan_kembali_listing_nonaktif_dan_wajib_masuk_kurasi_menunggu(): void
+    {
+        $listing = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => 'barang',
+            'nama' => 'Kue Nastar Warga 1',
+            'deskripsi' => 'Nastar keju gurih',
+            'harga' => 60000,
+            'status' => UmkmListing::STATUS_NONAKTIF,
+            'reviewed_by' => $this->ketuaRt->id,
+        ]);
+
+        $response = $this->actingAs($this->warga1)->post(route('umkm.aktifkan', $listing->id));
+
+        $response->assertRedirect(route('umkm.index'));
+        // Wajib kembali ke MENUNGGU, tidak boleh langsung DISETUJUI
+        $this->assertEquals(UmkmListing::STATUS_MENUNGGU, $listing->fresh()->status);
+        $this->assertNull($listing->fresh()->reviewed_by);
+    }
+
+    public function test_54_listing_ditakedown_dilarang_langsung_diaktifkan_kembali_tanpa_revisi(): void
+    {
+        $listing = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => 'barang',
+            'nama' => 'Produk Kena Takedown',
+            'deskripsi' => 'Deskripsi lama',
+            'harga' => 50000,
+            'status' => UmkmListing::STATUS_DITAKEDOWN,
+            'takedown_by' => $this->ketuaRt->id,
+            'alasan_takedown' => 'Produk perlu dikoreksi izin edarnya.',
+            'takedown_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->warga1)->post(route('umkm.aktifkan', $listing->id));
+
+        $response->assertStatus(422);
+        $this->assertEquals(UmkmListing::STATUS_DITAKEDOWN, $listing->fresh()->status);
+    }
+
+    public function test_55_pemilik_dapat_merevisi_listing_ditakedown_dan_status_kembali_menunggu_serta_membersihkan_data_takedown(): void
+    {
+        $listing = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => 'barang',
+            'nama' => 'Produk Kena Takedown',
+            'deskripsi' => 'Deskripsi lama',
+            'harga' => 50000,
+            'status' => UmkmListing::STATUS_DITAKEDOWN,
+            'takedown_by' => $this->ketuaRt->id,
+            'alasan_takedown' => 'Produk perlu dikoreksi izin edarnya.',
+            'takedown_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->warga1)->put(route('umkm.update', $listing->id), [
+            'kategori' => 'barang',
+            'nama' => 'Produk Kena Takedown (Sudah Direvisi)',
+            'deskripsi' => 'Deskripsi baru yang sudah memenuhi ketentuan lingkungan RT.',
+            'harga' => 50000,
+        ]);
+
+        $response->assertRedirect(route('umkm.index'));
+        $fresh = $listing->fresh();
+        $this->assertEquals(UmkmListing::STATUS_MENUNGGU, $fresh->status);
+        $this->assertEquals('Produk Kena Takedown (Sudah Direvisi)', $fresh->nama);
+        $this->assertNull($fresh->takedown_by);
+        $this->assertNull($fresh->alasan_takedown);
+        $this->assertNull($fresh->takedown_at);
+    }
+
+    public function test_56_ketua_rt_wakil_rt_dan_sekretaris_dapat_takedown_listing_warga_di_rt_nya_dengan_alasan_dan_audit_log(): void
+    {
+        $listing = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => 'barang',
+            'nama' => 'Produk Bermasalah',
+            'deskripsi' => 'Deskripsi',
+            'harga' => 15000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        $response = $this->actingAs($this->ketuaRt)->post(route('umkm.takedown', $listing->id), [
+            'alasan_takedown' => 'Dikeluhkan oleh warga sekitar karena menimbulkan kebisingan.',
+        ]);
+
+        $response->assertRedirect(route('umkm.index'));
+        $fresh = $listing->fresh();
+        $this->assertEquals(UmkmListing::STATUS_DITAKEDOWN, $fresh->status);
+        $this->assertEquals($this->ketuaRt->id, $fresh->takedown_by);
+        $this->assertEquals('Dikeluhkan oleh warga sekitar karena menimbulkan kebisingan.', $fresh->alasan_takedown);
+        $this->assertNotNull($fresh->takedown_at);
+
+        // Pastikan tercatat di audit_logs
+        $this->assertDatabaseHas('audit_logs', [
+            'aksi' => AuditAction::UMKM_LISTING_TAKEDOWN,
+            'target_type' => 'umkm_listing',
+            'target_id' => $listing->id,
+            'user_id' => $this->ketuaRt->id,
+            'alasan' => 'Dikeluhkan oleh warga sekitar karena menimbulkan kebisingan.',
+        ]);
+    }
+
+    public function test_57_ketua_rt_dilarang_takedown_listing_di_luar_rt_wilayahnya(): void
+    {
+        $wargaRt06 = User::create([
+            'rt_id' => $this->rt06->id,
+            'kode_warga' => 'WRG-RT06-TKD',
+            'nik' => '3273021005060099',
+            'nama' => 'Warga RT 06',
+            'email' => 'warga.rt06.tkd@example.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password123'),
+            'status' => 'aktif',
+            'no_hp' => '087788991122',
+        ]);
+        $listingRt06 = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $wargaRt06->id,
+            'rt_id' => $this->rt06->id,
+            'kategori' => 'barang',
+            'nama' => 'Produk RT 06',
+            'deskripsi' => 'Deskripsi RT 06',
+            'harga' => 25000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        // Ketua RT 05 mencoba takedown listing RT 06 -> 403 Forbidden
+        $response = $this->actingAs($this->ketuaRt)->post(route('umkm.takedown', $listingRt06->id), [
+            'alasan_takedown' => 'Mencoba intervensi RT tetangga.',
+        ]);
+
+        $response->assertStatus(403);
+        $this->assertEquals(UmkmListing::STATUS_DISETUJUI, $listingRt06->fresh()->status);
+    }
+
+    public function test_58_ketua_rw_dapat_takedown_lintas_rt_dalam_rw_binaannya(): void
+    {
+        $wargaRt06 = User::create([
+            'rt_id' => $this->rt06->id,
+            'kode_warga' => 'WRG-RT06-RW',
+            'nik' => '3273021005060088',
+            'nama' => 'Warga RT 06 RW',
+            'email' => 'warga.rt06.rw@example.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password123'),
+            'status' => 'aktif',
+            'no_hp' => '087788991133',
+        ]);
+        $listingRt06 = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $wargaRt06->id,
+            'rt_id' => $this->rt06->id,
+            'kategori' => 'barang',
+            'nama' => 'Produk RT 06 untuk RW Takedown',
+            'deskripsi' => 'Deskripsi RT 06',
+            'harga' => 25000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        // Ketua RW 03 takedown listing RT 06 (masih di bawah RW 03) -> Sukses
+        $response = $this->actingAs($this->ketuaRw)->post(route('umkm.takedown', $listingRt06->id), [
+            'alasan_takedown' => 'Dikeluhkan warga lintas RT karena mengganggu ketertiban umum.',
+        ]);
+
+        $response->assertRedirect(route('umkm.index'));
+        $this->assertEquals(UmkmListing::STATUS_DITAKEDOWN, $listingRt06->fresh()->status);
+        $this->assertEquals($this->ketuaRw->id, $listingRt06->fresh()->takedown_by);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'aksi' => AuditAction::UMKM_LISTING_TAKEDOWN,
+            'target_type' => 'umkm_listing',
+            'target_id' => $listingRt06->id,
+            'user_id' => $this->ketuaRw->id,
+        ]);
+    }
+
+    public function test_59_ketua_rw_dilarang_takedown_listing_di_rw_lain(): void
+    {
+        $klien = \App\Models\Klien::first();
+        $rwLain = \App\Models\Rw::create([
+            'klien_id' => $klien->id,
+            'kode_rw' => '32.73.02.1005-RW99',
+            'nomor_rw' => 99,
+            'nama' => 'RW 99 Sekeloa',
+        ]);
+        $rtLuarRw = Rt::create([
+            'rw_id' => $rwLain->id,
+            'kode_rt' => '32.73.02.1005-RW99-RT01',
+            'nomor_rt' => 1,
+            'nama' => 'RT 01 RW 99',
+        ]);
+        $wargaRwLain = User::create([
+            'rt_id' => $rtLuarRw->id,
+            'kode_warga' => 'WRG-RW99-001',
+            'nik' => '3273021005990001',
+            'nama' => 'Warga RW 99',
+            'email' => 'warga.rw99@example.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password123'),
+            'status' => 'aktif',
+            'no_hp' => '087799990001',
+        ]);
+        $listingRwLain = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $wargaRwLain->id,
+            'rt_id' => $rtLuarRw->id,
+            'kategori' => 'barang',
+            'nama' => 'Produk RW 99',
+            'deskripsi' => 'Deskripsi',
+            'harga' => 30000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        // Ketua RW 03 mencoba takedown listing di RW 99 -> 403 Forbidden
+        $response = $this->actingAs($this->ketuaRw)->post(route('umkm.takedown', $listingRwLain->id), [
+            'alasan_takedown' => 'Intervensi RW lain.',
+        ]);
+
+        $response->assertStatus(403);
+        $this->assertEquals(UmkmListing::STATUS_DISETUJUI, $listingRwLain->fresh()->status);
+    }
+
+    public function test_60_bendahara_dilarang_melakukan_takedown_umkm(): void
+    {
+        $listing = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => 'barang',
+            'nama' => 'Produk Warga 1',
+            'deskripsi' => 'Deskripsi',
+            'harga' => 10000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        // Bendahara mencoba takedown -> 403 Forbidden
+        $response = $this->actingAs($this->bendahara)->post(route('umkm.takedown', $listing->id), [
+            'alasan_takedown' => 'Bendahara mencoba takedown.',
+        ]);
+
+        $response->assertStatus(403);
+        $this->assertEquals(UmkmListing::STATUS_DISETUJUI, $listing->fresh()->status);
+    }
+
+    public function test_61_takedown_tanpa_alasan_atau_alasan_kurang_dari_5_karakter_ditolak_validasi(): void
+    {
+        $listing = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => 'barang',
+            'nama' => 'Produk Warga 1',
+            'deskripsi' => 'Deskripsi',
+            'harga' => 10000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        $response = $this->actingAs($this->ketuaRt)->post(route('umkm.takedown', $listing->id), [
+            'alasan_takedown' => '1234', // Kurang dari 5 karakter
+        ]);
+
+        $response->assertSessionHasErrors('alasan_takedown');
+        $this->assertEquals(UmkmListing::STATUS_DISETUJUI, $listing->fresh()->status);
+    }
+
+    public function test_62_warga_biasa_dilarang_melakukan_takedown(): void
+    {
+        $listing = UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => 'barang',
+            'nama' => 'Produk Warga 1',
+            'deskripsi' => 'Deskripsi',
+            'harga' => 10000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        $response = $this->actingAs($this->warga2)->post(route('umkm.takedown', $listing->id), [
+            'alasan_takedown' => 'Warga biasa mau takedown tetangga.',
+        ]);
+
+        $response->assertStatus(403);
+        $this->assertEquals(UmkmListing::STATUS_DISETUJUI, $listing->fresh()->status);
+    }
 }

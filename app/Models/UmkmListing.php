@@ -15,6 +15,8 @@ class UmkmListing extends Model
     public const STATUS_MENUNGGU = 'MENUNGGU';
     public const STATUS_DISETUJUI = 'DISETUJUI';
     public const STATUS_DITOLAK = 'DITOLAK';
+    public const STATUS_NONAKTIF = 'NONAKTIF';
+    public const STATUS_DITAKEDOWN = 'DITAKEDOWN';
 
     // Kategori Enum Constants
     public const KATEGORI_JASA = 'jasa';
@@ -34,12 +36,16 @@ class UmkmListing extends Model
         'status',
         'alasan_tolak',
         'reviewed_by',
+        'takedown_by',
+        'alasan_takedown',
+        'takedown_at',
     ];
 
     protected function casts(): array
     {
         return [
             'harga' => 'integer',
+            'takedown_at' => 'datetime',
         ];
     }
 
@@ -64,6 +70,11 @@ class UmkmListing extends Model
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
+    public function takedownBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'takedown_by');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Local Scopes
@@ -83,6 +94,16 @@ class UmkmListing extends Model
     public function scopeDitolak(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('status', self::STATUS_DITOLAK);
+    }
+
+    public function scopeNonaktif(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('status', self::STATUS_NONAKTIF);
+    }
+
+    public function scopeDitakedown(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('status', self::STATUS_DITAKEDOWN);
     }
 
     public function scopeMilikUser(\Illuminate\Database\Eloquent\Builder $query, int $userId): \Illuminate\Database\Eloquent\Builder

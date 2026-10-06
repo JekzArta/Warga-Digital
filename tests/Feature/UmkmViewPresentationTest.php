@@ -528,11 +528,12 @@ class UmkmViewPresentationTest extends TestCase
     }
 
     /**
-     * 16. Isolasi tenant: listing disetujui milik RT 06 TIDAK bocor ke etalase warga RT 05.
+     * 16. Etalase se-RW: listing RT 06 tampil bagi warga RT 05 dalam RW yang sama,
+     * tetapi listing RW lain (RW 04) TIDAK bocor ke etalase warga RW 03.
      */
     public function test_isolasi_tenant_cross_rt_tidak_bocor(): void
     {
-        // Listing RT 06
+        // Listing RT 06 (dalam RW 03 yang sama)
         UmkmListing::withoutGlobalScopes()->create([
             'user_id' => $this->wargaRt06->id,
             'rt_id' => $this->rt06->id,
@@ -543,16 +544,57 @@ class UmkmViewPresentationTest extends TestCase
             'status' => UmkmListing::STATUS_DISETUJUI,
         ]);
 
-        // Warga RT 05 membuka /umkm
+        // Buat RW 04 dan listing dari RW 04 (beda tenant RW)
+        $klien = \App\Models\Klien::first();
+        $rwLain = \App\Models\Rw::create([
+            'klien_id' => $klien->id,
+            'kode_rw' => '32.73.02.1005-RW04',
+            'nomor_rw' => 4,
+            'nama' => 'RW 04 Sekeloa',
+        ]);
+        $rtLuarRw = Rt::create([
+            'rw_id' => $rwLain->id,
+            'kode_rt' => '32.73.02.1005-RW04-RT01',
+            'nomor_rt' => 1,
+            'nama' => 'RT 01 RW 04',
+        ]);
+        $wargaRwLain = User::create([
+            'rt_id' => $rtLuarRw->id,
+            'kode_warga' => 'WRG-RW04-001',
+            'nik' => '3273021005040001',
+            'nama' => 'Warga RW 04',
+            'email' => 'warga.rw04@example.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password123'),
+            'status' => 'aktif',
+            'no_hp' => '087712345678',
+        ]);
+        UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $wargaRwLain->id,
+            'rt_id' => $rtLuarRw->id,
+            'kategori' => UmkmListing::KATEGORI_BARANG,
+            'nama' => 'Kopi Robusta Asli RW 04',
+            'deskripsi' => 'Kopi seduh produk RW 04.',
+            'harga' => 20000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        // Warga RT 05 membuka /umkm -> BISA melihat listing RT 06 (se-RW), TIDAK BISA melihat listing RW 04
         $response = $this->actingAs($this->warga1)->get(route('umkm.index'));
 
         $response->assertStatus(200);
-        $response->assertDontSee('Es Cendol Durian Asli RT 06');
+        $response->assertSee('Es Cendol Durian Asli RT 06');
+        $response->assertDontSee('Kopi Robusta Asli RW 04');
 
-        // Warga RT 06 membuka /umkm -> melihat listingnya sendiri
-        $responseRt06 = $this->actingAs($this->wargaRt06)->get(route('umkm.index'));
-        $responseRt06->assertStatus(200);
-        $responseRt06->assertSee('Es Cendol Durian Asli RT 06');
+        // Manipulasi query parameter ?rt_id ke RT di RW 04 tidak membocorkan data (anti-spoofing)
+        $responseSpoof = $this->actingAs($this->warga1)->get(route('umkm.index', ['rt_id' => $rtLuarRw->id]));
+        $responseSpoof->assertStatus(200);
+        $responseSpoof->assertDontSee('Kopi Robusta Asli RW 04');
+
+        // Warga RW 04 membuka /umkm -> melihat listingnya sendiri dan tidak melihat RW 03
+        $responseRw04 = $this->actingAs($wargaRwLain)->get(route('umkm.index'));
+        $responseRw04->assertStatus(200);
+        $responseRw04->assertSee('Kopi Robusta Asli RW 04');
+        $responseRw04->assertDontSee('Es Cendol Durian Asli RT 06');
     }
 
     // =========================================================================

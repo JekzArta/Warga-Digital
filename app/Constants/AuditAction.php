@@ -42,6 +42,17 @@ class AuditAction
     // UMKM
     public const UMKM_LISTING_APPROVED = 'UMKM_LISTING_APPROVED';
     public const UMKM_LISTING_REJECTED = 'UMKM_LISTING_REJECTED';
+    public const UMKM_LISTING_TAKEDOWN = 'UMKM_LISTING_TAKEDOWN';
+
+    // Kalender Warga
+    public const KALENDER_EVENT_CREATED = 'KALENDER_EVENT_CREATED';
+    public const KALENDER_EVENT_UPDATED = 'KALENDER_EVENT_UPDATED';
+    public const KALENDER_EVENT_DELETED = 'KALENDER_EVENT_DELETED';
+
+    // Galeri Kegiatan
+    public const GALERI_ALBUM_CREATED = 'GALERI_ALBUM_CREATED';
+    public const GALERI_ALBUM_UPDATED = 'GALERI_ALBUM_UPDATED';
+    public const GALERI_ALBUM_DELETED = 'GALERI_ALBUM_DELETED';
 
     /**
      * Legacy aliases mapping ke canonical constant.
@@ -104,6 +115,15 @@ class AuditAction
 
             self::UMKM_LISTING_APPROVED => 'Menyetujui Usaha UMKM',
             self::UMKM_LISTING_REJECTED => 'Menolak Usaha UMKM',
+            self::UMKM_LISTING_TAKEDOWN => 'Men-takedown Usaha UMKM',
+
+            self::KALENDER_EVENT_CREATED => 'Menambahkan Agenda Kalender',
+            self::KALENDER_EVENT_UPDATED => 'Memperbarui Agenda Kalender',
+            self::KALENDER_EVENT_DELETED => 'Menghapus Agenda Kalender',
+
+            self::GALERI_ALBUM_CREATED => 'Membuat Album Kegiatan',
+            self::GALERI_ALBUM_UPDATED => 'Memperbarui Info Album',
+            self::GALERI_ALBUM_DELETED => 'Menghapus Album Kegiatan',
 
             default => ucwords(str_replace(['_', '-'], ' ', strtolower($action))),
         };
@@ -133,6 +153,12 @@ class AuditAction
         }
         if (str_starts_with($action, 'UMKM_') || in_array($targetType, ['umkm_listings', 'umkm_listing'])) {
             return 'UMKM';
+        }
+        if (str_starts_with($action, 'KALENDER_') || in_array($targetType, ['kalender_events', 'kalender_event'])) {
+            return 'Kalender';
+        }
+        if (str_starts_with($action, 'GALERI_') || in_array($targetType, ['galeri_albums', 'galeri_album'])) {
+            return 'Galeri';
         }
 
         return 'Sistem';

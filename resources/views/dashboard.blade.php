@@ -229,19 +229,28 @@
         <!-- LEFT COLUMN (Kalender, Pengumuman, Aktivitas) -->
         <div class="lg:col-span-8 space-y-6">
 
-            <!-- WIDGET 1: KALENDER EVENT (Matching Figma Calendar Component) -->
+            <!-- WIDGET 1: KALENDER EVENT (Real Data Integration) -->
             <div class="bg-white rounded-3xl p-6 border border-stone-200/90 shadow-2xs">
                 <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-base font-extrabold text-stone-900">Kalender Event</h3>
-                    <div class="flex items-center gap-3">
-                        <button class="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center text-xs">&larr;</button>
-                        <span class="text-xs font-bold text-stone-800">{{ now()->translatedFormat('F Y') }}</span>
-                        <button class="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center text-xs">&rarr;</button>
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <h3 class="text-base font-extrabold text-stone-900 leading-tight">Kalender Event</h3>
+                            <p class="text-[11px] text-stone-400 font-medium">{{ $dashboardCurrentMonth->translatedFormat('F Y') }}</p>
+                        </div>
                     </div>
+                    <a href="{{ route('kalender.index') }}" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors">
+                        <span>Buka Kalender</span>
+                        <span>&rarr;</span>
+                    </a>
                 </div>
 
                 <!-- 7-Days Calendar Grid -->
-                <div class="grid grid-cols-7 gap-2 text-center text-xs mb-4">
+                <div class="grid grid-cols-7 gap-1 text-center text-xs mb-4">
                     <span class="text-stone-400 font-semibold py-1">Min</span>
                     <span class="text-stone-400 font-semibold py-1">Sen</span>
                     <span class="text-stone-400 font-semibold py-1">Sel</span>
@@ -250,110 +259,91 @@
                     <span class="text-stone-400 font-semibold py-1">Jum</span>
                     <span class="text-stone-400 font-semibold py-1">Sab</span>
 
-                    <!-- Sample days -->
-                    <span class="text-stone-300 py-1.5">28</span>
-                    <span class="text-stone-300 py-1.5">29</span>
-                    <span class="text-stone-300 py-1.5">30</span>
-                    <span class="text-stone-300 py-1.5">31</span>
-                    <span class="text-stone-700 py-1.5 font-medium">1</span>
-                    <span class="text-stone-700 py-1.5 font-medium">2</span>
-                    <span class="text-stone-700 py-1.5 font-medium">3</span>
+                    {{-- Empty offset cells --}}
+                    @for($i = 0; $i < $dashboardFirstDayOfWeek; $i++)
+                        <span class="py-1.5 text-stone-200"></span>
+                    @endfor
 
-                    <span class="text-stone-700 py-1.5 font-medium">4</span>
-                    <span class="text-stone-700 py-1.5 font-medium">5</span>
-                    <span class="text-stone-700 py-1.5 font-medium">6</span>
-                    <span class="text-stone-700 py-1.5 font-medium">7</span>
-                    <span class="text-stone-700 py-1.5 font-medium">8</span>
-                    <span class="text-stone-700 py-1.5 font-medium">9</span>
-                    <span class="text-stone-700 py-1.5 font-medium">10</span>
+                    {{-- Days of current month --}}
+                    @for($day = 1; $day <= $dashboardDaysInMonth; $day++)
+                        @php
+                            $dateStr = sprintf('%04d-%02d-%02d', $dashboardCurrentMonth->year, $dashboardCurrentMonth->month, $day);
+                            $isToday = ($dateStr === now()->format('Y-m-d'));
+                            $dayEvents = $dashboardEventsByDate->get($dateStr, collect());
+                            $hasEvents = $dayEvents->isNotEmpty();
+                        @endphp
 
-                    <span class="text-emerald-700 font-bold py-1.5 relative">
-                        11
-                        <span class="w-1 h-1 rounded-full bg-emerald-500 absolute bottom-0.5 left-1/2 -translate-x-1/2"></span>
-                    </span>
-                    <span class="text-stone-700 py-1.5 font-medium">12</span>
-                    <!-- Active/Today -->
-                    <span class="bg-[#131919] text-white font-bold rounded-xl py-1.5 shadow-xs">13</span>
-                    <span class="text-stone-700 py-1.5 font-medium">14</span>
-                    <span class="text-stone-700 py-1.5 font-medium">15</span>
-                    <span class="text-stone-700 py-1.5 font-medium">16</span>
-                    <span class="text-rose-700 font-bold py-1.5 relative">
-                        17
-                        <span class="w-1 h-1 rounded-full bg-rose-500 absolute bottom-0.5 left-1/2 -translate-x-1/2"></span>
-                    </span>
-
-                    <span class="text-stone-700 py-1.5 font-medium">18</span>
-                    <span class="text-stone-700 py-1.5 font-medium">19</span>
-                    <span class="text-amber-700 font-bold py-1.5 relative">
-                        20
-                        <span class="w-1 h-1 rounded-full bg-amber-500 absolute bottom-0.5 left-1/2 -translate-x-1/2"></span>
-                    </span>
-                    <span class="text-stone-700 py-1.5 font-medium">21</span>
-                    <span class="text-stone-700 py-1.5 font-medium">22</span>
-                    <span class="text-stone-700 py-1.5 font-medium">23</span>
-                    <span class="text-stone-700 py-1.5 font-medium">24</span>
-
-                    <span class="text-emerald-700 font-bold py-1.5 relative">
-                        25
-                        <span class="w-1 h-1 rounded-full bg-emerald-500 absolute bottom-0.5 left-1/2 -translate-x-1/2"></span>
-                    </span>
-                    <span class="text-stone-700 py-1.5 font-medium">26</span>
-                    <span class="text-stone-700 py-1.5 font-medium">27</span>
-                    <span class="text-stone-700 py-1.5 font-medium">28</span>
-                    <span class="text-stone-700 py-1.5 font-medium">29</span>
-                    <span class="text-stone-700 py-1.5 font-medium">30</span>
-                    <span class="text-stone-700 py-1.5 font-medium">31</span>
+                        <a href="{{ route('kalender.index', ['year' => $dashboardCurrentMonth->year, 'month' => $dashboardCurrentMonth->month]) }}" 
+                           title="{{ $day }} {{ $dashboardCurrentMonth->translatedFormat('F Y') }}{{ $hasEvents ? ' (' . $dayEvents->count() . ' agenda)' : '' }}"
+                           class="py-1.5 relative rounded-lg transition-all text-xs block {{ $isToday ? 'bg-[#131919] text-white font-bold shadow-xs' : ($hasEvents ? 'text-emerald-800 font-bold hover:bg-stone-100' : 'text-stone-700 font-medium hover:bg-stone-100') }}">
+                            <span>{{ $day }}</span>
+                            @if($hasEvents)
+                                <span class="w-1 h-1 rounded-full {{ $isToday ? 'bg-emerald-400' : 'bg-emerald-500' }} absolute bottom-0.5 left-1/2 -translate-x-1/2"></span>
+                            @endif
+                        </a>
+                    @endfor
                 </div>
 
-                <!-- Event Legend -->
+                <!-- Event Legend (Standardized 4 Categories) -->
                 <div class="flex flex-wrap items-center gap-3 pt-3 border-t border-stone-100 text-[11px] text-stone-500">
                     <span class="flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-sky-500"></span>
-                        <span>Info</span>
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span>Kegiatan Warga</span>
                     </span>
                     <span class="flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                        <span>Penting</span>
+                        <span>Rapat</span>
                     </span>
                     <span class="flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                        <span>Mendesak</span>
+                        <span>Posyandu</span>
                     </span>
                     <span class="flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span>Rutinitas</span>
+                        <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                        <span>Lainnya</span>
                     </span>
                 </div>
 
                 <!-- Event Schedule List Items -->
                 <div class="mt-4 space-y-2.5">
-                    <div class="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-xl bg-white border border-stone-200 flex flex-col items-center justify-center shrink-0">
-                            <span class="text-base font-extrabold text-stone-900 leading-none">17</span>
-                            <span class="text-[9px] font-bold text-stone-500 uppercase mt-0.5">Agt</span>
+                    @forelse($upcomingAgenda as $event)
+                        <a href="{{ route('kalender.index') }}" class="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 hover:border-emerald-600/40 hover:bg-stone-50/80 transition-all flex items-center justify-between gap-3 group">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-12 h-12 rounded-xl bg-white border border-stone-200 flex flex-col items-center justify-center shrink-0 shadow-2xs group-hover:border-emerald-500/40 transition-colors">
+                                    <span class="text-base font-extrabold text-stone-900 leading-none">{{ $event->tanggal->format('d') }}</span>
+                                    <span class="text-[9px] font-bold text-stone-500 uppercase mt-0.5">{{ $event->tanggal->translatedFormat('M') }}</span>
+                                </div>
+                                <div class="min-w-0">
+                                    <h4 class="font-bold text-stone-900 text-xs sm:text-sm truncate group-hover:text-emerald-700 transition-colors">{{ $event->judul }}</h4>
+                                    <p class="text-[11px] text-stone-500 mt-0.5 truncate flex items-center gap-1.5">
+                                        <span>{{ $event->formatted_waktu }}</span>
+                                        @if($event->lokasi)
+                                            <span>•</span>
+                                            <span class="truncate">📍 {{ $event->lokasi }}</span>
+                                        @endif
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end gap-1 shrink-0">
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-md {{ $event->kategori_badge_class }}">
+                                    {{ $event->kategori_label }}
+                                </span>
+                                <span class="text-[9px] font-semibold text-stone-400">
+                                    {{ $event->source_badge_label }}
+                                </span>
+                            </div>
+                        </a>
+                    @empty
+                        <div class="p-6 rounded-2xl bg-stone-50/80 border border-stone-200/60 text-center space-y-1.5">
+                            <div class="w-8 h-8 rounded-full bg-stone-100 text-stone-400 flex items-center justify-center mx-auto mb-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <p class="text-xs font-bold text-stone-700">Belum ada agenda mendatang</p>
+                            <p class="text-[11px] text-stone-400">Jadwal kegiatan RT dan RW akan ditampilkan di sini.</p>
                         </div>
-                        <div class="flex-1 min-w-0">
-                            <h4 class="font-bold text-stone-900 text-xs sm:text-sm truncate">Upacara & Lomba Kemerdekaan RT 05</h4>
-                            <p class="text-[11px] text-stone-500 mt-0.5 truncate">08:00 WIB • Lapangan RW 03 Sekeloa</p>
-                        </div>
-                        <span class="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-md shrink-0">
-                            Mendesak
-                        </span>
-                    </div>
-
-                    <div class="p-3 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-xl bg-white border border-stone-200 flex flex-col items-center justify-center shrink-0">
-                            <span class="text-base font-extrabold text-stone-900 leading-none">25</span>
-                            <span class="text-[9px] font-bold text-stone-500 uppercase mt-0.5">Agt</span>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <h4 class="font-bold text-stone-900 text-xs sm:text-sm truncate">Pelayanan Posyandu Balita & Lansia</h4>
-                            <p class="text-[11px] text-stone-500 mt-0.5 truncate">09:00 WIB • Rumah Ibu Ketua RT 05</p>
-                        </div>
-                        <span class="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-1 rounded-md shrink-0">
-                            Info
-                        </span>
-                    </div>
+                    @endforelse
                 </div>
             </div>
 
@@ -463,19 +453,68 @@
                 </div>
             </div>
 
-            <!-- WIDGET 2: GALERI KEGIATAN HIGHLIGHT (Matching Figma Photo Banner) -->
-            <div class="rounded-3xl overflow-hidden border border-stone-200/90 shadow-2xs relative group cursor-pointer h-56 bg-slate-800">
-                <img 
-                    src="https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80" 
-                    alt="Lomba 17-an Masjid Nur Iqlab" 
-                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"
-                >
-                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-5 flex flex-col justify-end text-white">
-                    <span class="text-[10px] font-bold tracking-wider uppercase text-emerald-300">Dokumentasi Warga</span>
-                    <h4 class="font-bold text-base leading-tight mt-0.5 text-white">Kerja Bakti & Lomba Warga RT 05</h4>
-                    <p class="text-[11px] text-slate-300 mt-1">Foto Kegiatan Terbaru Komunitas</p>
+            <!-- WIDGET 2: GALERI KEGIATAN HIGHLIGHT (Dinamis dari Database) -->
+            @if($latestAlbum)
+                <div class="rounded-3xl overflow-hidden border border-stone-200/90 shadow-2xs relative group cursor-pointer h-56 bg-slate-900 flex flex-col justify-end">
+                    @if($latestAlbum->coverFoto && $latestAlbum->coverFoto->foto_url)
+                        <img 
+                            src="{{ Storage::url($latestAlbum->coverFoto->foto_url) }}" 
+                            alt="{{ $latestAlbum->judul }}" 
+                            class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"
+                        >
+                    @else
+                        <div class="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+                            <svg class="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                    @endif
+
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-5 flex flex-col justify-between text-white pointer-events-none">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-extrabold tracking-wider uppercase text-emerald-300 bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-full border border-white/10">
+                                Dokumentasi Terbaru
+                            </span>
+                            <span class="text-[11px] font-bold text-white/90 bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-full border border-white/10">
+                                {{ $latestAlbum->fotos_count }} Foto
+                            </span>
+                        </div>
+
+                        <div>
+                            <h4 class="font-bold text-base leading-tight text-white group-hover:text-emerald-300 transition-colors line-clamp-2">
+                                {{ $latestAlbum->judul }}
+                            </h4>
+                            <p class="text-[11px] text-slate-300 mt-1 flex items-center gap-1.5">
+                                <span>{{ $latestAlbum->tanggal_kegiatan ? $latestAlbum->tanggal_kegiatan->translatedFormat('d F Y') : '-' }}</span>
+                                @if($latestAlbum->rt)
+                                    <span>• RT 0{{ $latestAlbum->rt->nomor_rt }}</span>
+                                @endif
+                            </p>
+                            <div class="mt-2.5 flex items-center text-xs font-bold text-emerald-300 group-hover:translate-x-1 transition-transform">
+                                <span>Lihat Galeri &rarr;</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <a href="{{ route('galeri.show', $latestAlbum->id) }}" class="absolute inset-0 z-10" aria-label="Buka album {{ $latestAlbum->judul }}"></a>
                 </div>
-            </div>
+            @else
+                <div class="rounded-3xl border border-stone-200/90 bg-white p-5 shadow-2xs text-center flex flex-col items-center justify-center h-56">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <h4 class="text-sm font-bold text-stone-800">Dokumentasi Warga</h4>
+                    <p class="text-xs text-stone-500 mt-1 max-w-xs leading-relaxed">
+                        Belum ada album kegiatan yang dipublikasikan.
+                    </p>
+                    <a href="{{ route('galeri.index') }}" class="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800">
+                        <span>Buka Galeri</span>
+                        <span>&rarr;</span>
+                    </a>
+                </div>
+            @endif
 
             <!-- WIDGET 3: KAS RT — BULAN INI (Matching Figma Cash Summary) -->
             <div class="bg-white rounded-3xl p-6 border border-stone-200/90 shadow-2xs">
