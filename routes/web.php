@@ -14,9 +14,9 @@ use App\Http\Controllers\VerifikasiSuratController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-// Redirect root ke dashboard jika login, atau ke login page jika belum
+// Pengunjung melihat landing page Warga Digital; warga yang sudah login diarahkan ke dashboard
 Route::get('/', function () {
-    return Auth::check() ? redirect()->route('dashboard') : redirect()->route('login');
+    return Auth::check() ? redirect()->route('dashboard') : view('landing');
 });
 
 // Verifikasi Publik Dokumen Resmi (Bisa diakses pihak ketiga tanpa login, rate-limited 10 req/menit/IP)

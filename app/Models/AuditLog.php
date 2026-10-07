@@ -27,6 +27,7 @@ class AuditLog extends Model
         'sebelum',
         'sesudah',
         'alasan',
+        'alasan_publik',
     ];
 
     /**
@@ -215,6 +216,14 @@ class AuditLog extends Model
 
         if ($target instanceof UmkmListing) {
             return "Usaha UMKM: {$target->nama_usaha}";
+        }
+
+        if ($target instanceof KalenderEvent) {
+            return "Agenda: {$target->judul}";
+        }
+
+        if ($target instanceof GaleriAlbum) {
+            return "Album: {$target->judul}";
         }
 
         // Fallback jika model target sudah dihapus atau tidak ditemukan

@@ -919,4 +919,38 @@ class UmkmViewPresentationTest extends TestCase
         $responseDelete = $this->actingAs($this->warga2)->delete(route('umkm.destroy', $listingWarga1->id));
         $responseDelete->assertStatus(403);
     }
+
+    /**
+     * 31. Privasi UU PDP: NIK tidak boleh pernah muncul di Blade view UMKM (katalog, usaha saya, modal).
+     */
+    public function test_zero_nik_leak_in_umkm_views(): void
+    {
+        UmkmListing::withoutGlobalScopes()->create([
+            'user_id' => $this->warga1->id,
+            'rt_id' => $this->rt05->id,
+            'kategori' => UmkmListing::KATEGORI_BARANG,
+            'nama' => 'Produk Tes Privasi NIK',
+            'deskripsi' => 'Deskripsi produk.',
+            'harga' => 25000,
+            'status' => UmkmListing::STATUS_DISETUJUI,
+        ]);
+
+        $niks = [
+            $this->warga1->nik,
+            $this->warga2->nik,
+            $this->wargaRt06->nik,
+        ];
+
+        // Sebagai warga 1
+        $resWarga1 = $this->actingAs($this->warga1)->get(route('umkm.index'));
+        foreach ($niks as $nik) {
+            $resWarga1->assertDontSee($nik);
+        }
+
+        // Sebagai warga 2 di tab Usaha Saya
+        $resWarga2 = $this->actingAs($this->warga2)->get(route('umkm.index', ['tab' => 'usaha-saya']));
+        foreach ($niks as $nik) {
+            $resWarga2->assertDontSee($nik);
+        }
+    }
 }

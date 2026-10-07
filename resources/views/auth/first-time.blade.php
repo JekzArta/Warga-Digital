@@ -11,11 +11,7 @@
 }">
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
         <div class="text-center mb-8">
-            <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl mx-auto flex items-center justify-center border border-emerald-200/80 mb-4">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-                </svg>
-            </div>
+            <img src="{{ asset('assets/logo.png') }}" alt="Logo Warga Digital" class="w-16 h-16 rounded-2xl mx-auto shadow-md mb-4 object-cover">
             <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Aktivasi Akun Warga</h1>
             <p class="text-sm text-slate-500 mt-1.5">Untuk warga yang datanya telah didaftarkan oleh pengurus RT</p>
         </div>

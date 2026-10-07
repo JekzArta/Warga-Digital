@@ -17,6 +17,9 @@ class AuditLogger
         'forum_thread' => 'forum_threads',
         'forum_post' => 'forum_posts',
         'user' => 'users',
+        'umkm_listing' => 'umkm_listings',
+        'kalender_event' => 'kalender_events',
+        'galeri_albums' => 'galeri_album',
     ];
 
     /**
@@ -31,6 +34,7 @@ class AuditLogger
      * @param int|null $rtId Override rt_id jika berbeda dari user yang login
      * @param int|null $rwId Override rw_id jika berbeda dari user yang login
      * @param User|null $actor Override actor secara eksplisit jika perlu
+     * @param string|null $alasanPublik Penjelasan publik eksplisit (dual-reason contract)
      * @return AuditLog
      */
     public static function log(
@@ -42,7 +46,8 @@ class AuditLogger
         ?string $alasan = null,
         ?int $rtId = null,
         ?int $rwId = null,
-        ?User $actor = null
+        ?User $actor = null,
+        ?string $alasanPublik = null
     ): AuditLog {
         $user = $actor ?? Auth::user();
 
@@ -53,6 +58,9 @@ class AuditLogger
             $ipAddress = null;
         }
 
+        $aksiKanonikal = AuditAction::toCanonical($aksi);
+        $targetTypeKanonikal = self::$canonicalTargetTypes[$targetType] ?? $targetType;
+
         return AuditLog::create([
             'rt_id' => $rtId ?? $user?->rt_id,
             'rw_id' => $rwId ?? $user?->rw_id ?? $user?->rt?->rw_id,
@@ -61,12 +69,13 @@ class AuditLogger
             'actor_nama' => $user?->nama,
             'actor_role' => $user?->getHighestRoleCanonical(),
             'ip_address' => $ipAddress,
-            'aksi' => $aksi,
-            'target_type' => $targetType,
+            'aksi' => $aksiKanonikal,
+            'target_type' => $targetTypeKanonikal,
             'target_id' => $targetId,
             'sebelum' => $sebelum,
             'sesudah' => $sesudah,
             'alasan' => $alasan,
+            'alasan_publik' => $alasanPublik,
         ]);
     }
 }

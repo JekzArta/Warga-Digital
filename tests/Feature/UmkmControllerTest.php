@@ -1175,7 +1175,7 @@ class UmkmControllerTest extends TestCase
         // Pastikan tercatat di audit_logs
         $this->assertDatabaseHas('audit_logs', [
             'aksi' => AuditAction::UMKM_LISTING_TAKEDOWN,
-            'target_type' => 'umkm_listing',
+            'target_type' => 'umkm_listings',
             'target_id' => $listing->id,
             'user_id' => $this->ketuaRt->id,
             'alasan' => 'Dikeluhkan oleh warga sekitar karena menimbulkan kebisingan.',
@@ -1246,7 +1246,7 @@ class UmkmControllerTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'aksi' => AuditAction::UMKM_LISTING_TAKEDOWN,
-            'target_type' => 'umkm_listing',
+            'target_type' => 'umkm_listings',
             'target_id' => $listingRt06->id,
             'user_id' => $this->ketuaRw->id,
         ]);

@@ -10,9 +10,7 @@
     <!-- Login Card -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
         <div class="text-center mb-8">
-            <div class="w-14 h-14 bg-emerald-600 rounded-2xl mx-auto flex items-center justify-center text-white font-bold text-2xl shadow-sm mb-4">
-                WD
-            </div>
+            <img src="{{ asset('assets/logo.png') }}" alt="Logo Warga Digital" class="w-16 h-16 rounded-2xl mx-auto shadow-md mb-4 object-cover">
             <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Masuk ke Warga Digital</h1>
             <p class="text-sm text-slate-500 mt-1.5">Portal layanan administrasi & komunitas warga RT/RW</p>
         </div>

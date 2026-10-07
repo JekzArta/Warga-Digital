@@ -8,15 +8,18 @@
     <!-- Header Meja Verifikasi -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <div class="flex items-center gap-2 mb-1">
-                <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">Panel Administrasi</span>
-                <span class="text-xs text-stone-500">Lingkup Wilayah: RT 0{{ auth()->user()?->rt?->nomor_rt ?? 5 }} / RW 0{{ auth()->user()?->rw?->nomor_rw ?? 3 }}</span>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800 tracking-wide uppercase mb-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                <span>Panel Administrasi RT 0{{ auth()->user()?->rt?->nomor_rt ?? 5 }} / RW 0{{ auth()->user()?->rw?->nomor_rw ?? 3 }}</span>
             </div>
-            <h1 class="text-2xl font-bold text-stone-900 tracking-tight">Meja Verifikasi Surat</h1>
-            <p class="text-xs text-stone-500 mt-0.5">Tinjau, setujui, tolak, atau minta kelengkapan dokumen permohonan surat masuk warga.</p>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">Meja Verifikasi Surat</h1>
+            <p class="text-xs sm:text-sm text-stone-600 mt-0.5">Tinjau, setujui, tolak, atau minta kelengkapan dokumen permohonan surat masuk warga.</p>
         </div>
 
-        <a href="{{ route('surat.index') }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-stone-100 border border-stone-200 text-stone-700 text-xs font-semibold shadow-2xs transition-all self-start sm:self-auto">
+        <a 
+            href="{{ route('surat.index') }}" 
+            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white hover:bg-stone-100 border border-stone-200 text-stone-700 text-xs font-bold shadow-2xs transition-all self-start sm:self-auto"
+        >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
@@ -24,49 +27,47 @@
         </a>
     </div>
 
-
-
     <!-- 4 KARTU STATISTIK ANTREAN VERIFIKASI -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="bg-white rounded-2xl p-4 border border-stone-200/90 shadow-2xs">
+        <div class="bg-white rounded-3xl p-5 border border-stone-200/90 shadow-2xs space-y-1">
             <span class="text-[11px] font-bold uppercase tracking-wider text-stone-400 block">Menunggu Tindakan</span>
             <div class="flex items-baseline justify-between mt-1">
-                <span class="text-2xl font-bold text-stone-900">{{ $counts['menunggu'] }}</span>
+                <span class="text-2xl sm:text-3xl font-extrabold text-stone-900">{{ $counts['menunggu'] }}</span>
                 <span class="w-2.5 h-2.5 rounded-full bg-stone-400"></span>
             </div>
-            <span class="text-[10px] text-stone-500 mt-1 block">Permohonan baru masuk</span>
+            <span class="text-[10px] text-stone-500 block">Permohonan baru masuk</span>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 border border-stone-200/90 shadow-2xs">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 block">Sedang Ditinjau</span>
+        <div class="bg-white rounded-3xl p-5 border border-stone-200/90 shadow-2xs space-y-1">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-sky-700 block">Sedang Ditinjau</span>
             <div class="flex items-baseline justify-between mt-1">
-                <span class="text-2xl font-bold text-blue-900">{{ $counts['direview'] }}</span>
-                <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                <span class="text-2xl sm:text-3xl font-extrabold text-sky-950">{{ $counts['direview'] }}</span>
+                <span class="w-2.5 h-2.5 rounded-full bg-sky-500 animate-pulse"></span>
             </div>
-            <span class="text-[10px] text-stone-500 mt-1 block">Sudah dibuka pengurus</span>
+            <span class="text-[10px] text-stone-500 block">Sudah dibuka pengurus</span>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 border border-stone-200/90 shadow-2xs">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-600 block">Perlu Kelengkapan</span>
+        <div class="bg-white rounded-3xl p-5 border border-stone-200/90 shadow-2xs space-y-1">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700 block">Perlu Kelengkapan</span>
             <div class="flex items-baseline justify-between mt-1">
-                <span class="text-2xl font-bold text-amber-900">{{ $counts['perlu_kelengkapan'] }}</span>
+                <span class="text-2xl sm:text-3xl font-extrabold text-amber-950">{{ $counts['perlu_kelengkapan'] }}</span>
                 <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
             </div>
-            <span class="text-[10px] text-stone-500 mt-1 block">Menunggu revisi warga</span>
+            <span class="text-[10px] text-stone-500 block">Menunggu revisi warga</span>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 border border-stone-200/90 shadow-2xs">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 block">Disetujui</span>
+        <div class="bg-white rounded-3xl p-5 border border-stone-200/90 shadow-2xs space-y-1">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700 block">Disetujui</span>
             <div class="flex items-baseline justify-between mt-1">
-                <span class="text-2xl font-bold text-emerald-900">{{ $counts['disetujui'] }}</span>
+                <span class="text-2xl sm:text-3xl font-extrabold text-emerald-950">{{ $counts['disetujui'] }}</span>
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
             </div>
-            <span class="text-[10px] text-stone-500 mt-1 block">Nomor resmi terbit</span>
+            <span class="text-[10px] text-stone-500 block">Nomor resmi terbit</span>
         </div>
     </div>
 
     <!-- PENCARIAN & FILTER TAB MEJA KERJA -->
-    <div class="bg-white rounded-3xl p-5 border border-stone-200/90 shadow-2xs space-y-4">
+    <div class="bg-white rounded-3xl p-5 sm:p-6 border border-stone-200/90 shadow-2xs space-y-5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <!-- Filter Tabs -->
             <div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
@@ -84,7 +85,7 @@
                 @foreach($tabs as $k => $label)
                 <a 
                     href="{{ route('admin.surat.index', ['status' => $k, 'search' => $search]) }}"
-                    class="px-3.5 py-1.5 rounded-full font-medium transition-all shrink-0 {{ $tab === $k ? 'bg-[#182222] text-white font-semibold shadow-xs' : 'bg-stone-100 hover:bg-stone-200 text-stone-700' }}"
+                    class="px-3.5 py-1.5 rounded-full font-semibold transition-all shrink-0 {{ $tab === $k ? 'bg-[#10231e] text-white shadow-xs' : 'bg-stone-100 hover:bg-stone-200 text-stone-700' }}"
                 >
                     {{ $label }}
                 </a>
@@ -92,14 +93,14 @@
             </div>
 
             <!-- Form Cari Pemohon / Nomor Surat -->
-            <form method="GET" action="{{ route('admin.surat.index') }}" class="relative w-full sm:w-64">
+            <form method="GET" action="{{ route('admin.surat.index') }}" class="relative w-full sm:w-72">
                 <input type="hidden" name="status" value="{{ $tab }}">
                 <input 
                     type="text" 
                     name="search" 
                     value="{{ $search }}" 
-                    placeholder="Cari pemohon / no..."
-                    class="w-full pl-9 pr-4 py-2 bg-stone-50 rounded-xl border border-stone-200 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-600"
+                    placeholder="Cari pemohon / no surat..."
+                    class="w-full pl-9 pr-4 py-2 bg-stone-50 rounded-xl border border-stone-200 text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-700/30 focus:border-emerald-700"
                 >
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -131,10 +132,13 @@
                         </td>
                         <td class="py-3.5 px-3">
                             <span class="font-bold text-stone-900 block">{{ $item->user->nama }}</span>
-                            <span class="text-[10px] text-stone-400">RT 0{{ $item->rt->nomor_rt ?? 5 }} • NIK ...{{ substr($item->user->nik ?? '0001', -4) }}</span>
+                            <!-- ZERO NIK: Digantikan dengan Kode Registrasi Warga yang sah -->
+                            <span class="text-[10px] text-stone-400 font-mono">
+                                RT 0{{ $item->rt->nomor_rt ?? 5 }} • {{ $item->user->kode_warga ?? ('WRG-RT0' . ($item->rt->nomor_rt ?? 5) . '-' . str_pad($item->user->id, 3, '0', STR_PAD_LEFT)) }}
+                            </span>
                         </td>
                         <td class="py-3.5 px-3">
-                            <span class="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 font-bold text-[10px]">
+                            <span class="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 font-bold font-mono text-[10px]">
                                 {{ $item->jenis_surat }}
                             </span>
                             @if($item->nomor_surat)
@@ -143,8 +147,8 @@
                         </td>
                         <td class="py-3.5 px-3 max-w-[220px]">
                             <p class="truncate text-stone-700 font-medium">{{ $item->form_data['keperluan'] ?? '—' }}</p>
-                            @if(!empty($item->form_data['dokumen_url']))
-                            <span class="inline-flex items-center gap-1 text-[10px] text-blue-700 font-semibold mt-0.5">
+                            @if(!empty($item->form_data['lampiran']) || !empty($item->form_data['dokumen_url']))
+                            <span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-semibold mt-0.5">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                                 </svg>
@@ -164,13 +168,13 @@
                                 <span>Perlu Berkas</span>
                             </span>
                             @elseif($item->status === 'DITOLAK')
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-800 border border-red-300 font-bold text-[10px]">
-                                <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 border border-rose-300 font-bold text-[10px]">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
                                 <span>Ditolak</span>
                             </span>
                             @elseif($item->status === 'DIREVIEW')
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-300 font-bold text-[10px]">
-                                <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-300 font-bold text-[10px]">
+                                <span class="w-1.5 h-1.5 rounded-full bg-sky-600 animate-pulse"></span>
                                 <span>Ditinjau</span>
                             </span>
                             @else
@@ -183,7 +187,7 @@
                         <td class="py-3.5 px-3 text-right">
                             <a 
                                 href="{{ route('surat.show', $item->id) }}" 
-                                class="inline-flex items-center gap-1 px-3 py-1.5 bg-[#182222] hover:bg-stone-900 text-white rounded-xl text-xs font-semibold transition-all shadow-2xs"
+                                class="inline-flex items-center gap-1 px-3.5 py-1.5 bg-[#10231e] hover:bg-[#18362e] text-white rounded-full text-xs font-bold transition-all shadow-2xs"
                             >
                                 <span>Tinjau</span>
                                 <span>&rarr;</span>

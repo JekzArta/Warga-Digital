@@ -43,20 +43,15 @@ class DashboardController extends Controller
 
         // Rekomendasi UMKM Terkini (Scope RT/Tenant, Status DISETUJUI, Maksimal 3)
         $umkmList = UmkmListing::disetujui()
-            ->with('user')
+            ->with(['user', 'rt'])
             ->latest()
             ->take(3)
             ->get();
 
-        // Status Surat Terakhir Pengguna
+        // Status Surat Terakhir Pengguna (Khusus milik pengguna yang login untuk privasi)
         $recentSurat = SuratPengajuan::where('user_id', $user->id)
             ->latest()
             ->first();
-
-        // Jika warga belum ada surat, ambil sample permohonan untuk preview demo
-        if (!$recentSurat && $user->rt_id) {
-            $recentSurat = SuratPengajuan::where('rt_id', $user->rt_id)->first();
-        }
 
         // Statistik Cepat
         $stats = [

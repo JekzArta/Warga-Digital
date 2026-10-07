@@ -237,6 +237,31 @@ class KasViewPresentationTest extends TestCase
         $resKas->assertSee('bg-white/10 text-white font-semibold shadow-xs', false);
         $resKas->assertSee('Kas & Iuran', false);
     }
+
+    /**
+     * 10. Privasi UU PDP: NIK tidak boleh pernah muncul di Blade view kas (warga, pengurus, maupun sumber mutasi).
+     */
+    public function test_zero_nik_leak_in_kas_views(): void
+    {
+        $niks = [
+            $this->warga->nik,
+            $this->bendahara->nik,
+            $this->ketuaRt->nik,
+            $this->ketuaRw->nik,
+        ];
+
+        // Sebagai warga
+        $resWarga = $this->actingAs($this->warga)->get(route('kas.index'));
+        foreach ($niks as $nik) {
+            $resWarga->assertDontSee($nik);
+        }
+
+        // Sebagai bendahara
+        $resBendahara = $this->actingAs($this->bendahara)->get(route('kas.index'));
+        foreach ($niks as $nik) {
+            $resBendahara->assertDontSee($nik);
+        }
+    }
 }
 
 

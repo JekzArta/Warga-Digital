@@ -27,11 +27,25 @@ class AuditLogBuilder extends Builder
     ];
 
     /**
-     * Intercept where('aksi', ...) to support both legacy and canonical action names.
+     * Target type alias map for backward compatibility with historical rows and callsites.
+     */
+    protected static array $targetTypeAliases = [
+        'announcements' => ['announcements', 'announcement'],
+        'announcement'  => ['announcements', 'announcement'],
+        'forum_threads' => ['forum_threads', 'forum_thread'],
+        'forum_thread'  => ['forum_threads', 'forum_thread'],
+        'umkm_listings' => ['umkm_listings', 'umkm_listing'],
+        'umkm_listing'  => ['umkm_listings', 'umkm_listing'],
+    ];
+
+    /**
+     * Intercept where('aksi', ...) and where('target_type', ...) equality conditions
+     * to support both legacy and canonical action/target names.
      */
     public function where($column, $operator = null, $value = null, $boolean = 'and')
     {
         $numArgs = func_num_args();
+
         if (is_string($column) && $column === 'aksi') {
             $checkVal = ($numArgs === 2) ? $operator : $value;
             $op = ($numArgs === 2) ? '=' : $operator;
@@ -40,6 +54,17 @@ class AuditLogBuilder extends Builder
                 $canonical = AuditAction::toCanonical($checkVal);
                 if (isset(self::$legacyAliases[$canonical])) {
                     return $this->whereIn('aksi', self::$legacyAliases[$canonical], $boolean);
+                }
+            }
+        }
+
+        if (is_string($column) && $column === 'target_type') {
+            $checkVal = ($numArgs === 2) ? $operator : $value;
+            $op = ($numArgs === 2) ? '=' : $operator;
+
+            if ($op === '=' && is_string($checkVal)) {
+                if (isset(self::$targetTypeAliases[$checkVal])) {
+                    return $this->whereIn('target_type', self::$targetTypeAliases[$checkVal], $boolean);
                 }
             }
         }

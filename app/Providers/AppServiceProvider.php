@@ -31,6 +31,8 @@ class AppServiceProvider extends ServiceProvider
             'kas_transaksi'   => \App\Models\KasTransaksi::class,
             'umkm_listing'    => \App\Models\UmkmListing::class,
             'umkm_listings'   => \App\Models\UmkmListing::class,
+            'kalender_events' => \App\Models\KalenderEvent::class,
+            'galeri_album'    => \App\Models\GaleriAlbum::class,
         ]);
     }
 }

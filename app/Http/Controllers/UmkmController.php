@@ -344,7 +344,7 @@ class UmkmController extends Controller
 
             AuditLogger::log(
                 aksi: AuditAction::UMKM_LISTING_TAKEDOWN,
-                targetType: 'umkm_listing',
+                targetType: 'umkm_listings',
                 targetId: (int) $listing->id,
                 sebelum: $sebelum,
                 sesudah: $sesudah,

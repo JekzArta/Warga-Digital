@@ -279,8 +279,8 @@ class KomunitasController extends Controller
 
             // Audit Trail resmi untuk aksi pengurus (tidak ada duplicate audit kalender)
             AuditLogger::log(
-                aksi: 'terbitkan_pengumuman',
-                targetType: 'announcement',
+                aksi: AuditAction::ANNOUNCEMENT_CREATED,
+                targetType: 'announcements',
                 targetId: $ann->id,
                 sebelum: null,
                 sesudah: [
@@ -472,7 +472,7 @@ class KomunitasController extends Controller
 
             // 4. Catat audit trail akuntabel (Hanya ANNOUNCEMENT_UPDATED, tidak ada duplicate audit kalender)
             AuditLogger::log(
-                aksi: 'ANNOUNCEMENT_UPDATED',
+                aksi: AuditAction::ANNOUNCEMENT_UPDATED,
                 targetType: 'announcements',
                 targetId: $new->id,
                 sebelum: [
@@ -533,7 +533,7 @@ class KomunitasController extends Controller
         ]);
 
         AuditLogger::log(
-            aksi: 'ANNOUNCEMENT_DEACTIVATED',
+            aksi: AuditAction::ANNOUNCEMENT_DEACTIVATED,
             targetType: 'announcements',
             targetId: $announcement->id,
             sebelum: ['is_deactivated' => false],
@@ -591,7 +591,7 @@ class KomunitasController extends Controller
         ]);
 
         AuditLogger::log(
-            aksi: 'ANNOUNCEMENT_FORUM_LINKED',
+            aksi: AuditAction::ANNOUNCEMENT_FORUM_LINKED,
             targetType: 'announcements',
             targetId: $announcement->id,
             sebelum: ['forum_thread_id' => null],
@@ -631,7 +631,7 @@ class KomunitasController extends Controller
         $announcement->is_pinned = $newPinned;
         $announcement->save();
 
-        $actionName = $newPinned ? 'ANNOUNCEMENT_PINNED' : 'ANNOUNCEMENT_UNPINNED';
+        $actionName = $newPinned ? AuditAction::ANNOUNCEMENT_PINNED : AuditAction::ANNOUNCEMENT_UNPINNED;
         $deskripsi = ($newPinned ? 'Menyematkan' : 'Melepas sematan') . " pengumuman: {$announcement->judul}";
 
         AuditLogger::log(
@@ -1058,17 +1058,17 @@ class KomunitasController extends Controller
             'is_pinned' => (bool) $thread->is_pinned,
         ];
 
-        $aksiLabel = match ($validated['aksi']) {
-            'pin' => 'pin_thread',
-            'unpin' => 'unpin_thread',
-            'close' => 'close_thread',
-            'reopen' => 'reopen_thread',
-            'hapus' => 'hapus_thread',
+        $aksiConstant = match ($validated['aksi']) {
+            'pin' => AuditAction::FORUM_THREAD_PINNED,
+            'unpin' => AuditAction::FORUM_THREAD_UNPINNED,
+            'close' => AuditAction::FORUM_THREAD_CLOSED,
+            'reopen' => AuditAction::FORUM_THREAD_REOPENED,
+            'hapus' => AuditAction::FORUM_THREAD_DELETED,
         };
 
         AuditLogger::log(
-            aksi: $aksiLabel,
-            targetType: 'forum_thread',
+            aksi: $aksiConstant,
+            targetType: 'forum_threads',
             targetId: $thread->id,
             sebelum: $sebelum,
             sesudah: $sesudah,

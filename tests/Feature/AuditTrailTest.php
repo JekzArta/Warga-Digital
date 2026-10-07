@@ -7,11 +7,15 @@ use App\Models\Announcement;
 use App\Models\AuditLog;
 use App\Models\ForumCategory;
 use App\Models\ForumThread;
+use App\Models\GaleriAlbum;
+use App\Models\KalenderEvent;
 use App\Models\Rt;
 use App\Models\Rw;
 use App\Models\SuratPengajuan;
+use App\Models\UmkmListing;
 use App\Models\User;
 use App\Services\AuditLogger;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
@@ -409,5 +413,181 @@ class AuditTrailTest extends TestCase
         $this->assertNull($reloadedLog->user_id, 'user_id harus berubah menjadi NULL via nullOnDelete!');
         $this->assertEquals('Pejabat Sementara RT', $reloadedLog->actor_nama, 'Snapshot actor_nama harus tetap tersimpan!');
         $this->assertEquals('Pejabat Sementara RT', $reloadedLog->actor_nama_display);
+    }
+
+    /**
+     * K. Phase 1: Verifikasi Enforce Canonical Write Path pada AuditLogger.
+     * Legacy action dan legacy target_type harus selalu dinormalisasi sebelum disimpan.
+     */
+    public function test_audit_logger_enforces_canonical_write_for_actions_and_targets(): void
+    {
+        $this->actingAs($this->ketuaRt5);
+
+        // 1. terbitkan_pengumuman + announcement -> ANNOUNCEMENT_CREATED + announcements
+        $logAnnouncement = AuditLogger::log(
+            aksi: 'terbitkan_pengumuman',
+            targetType: 'announcement',
+            targetId: 1
+        );
+        $this->assertEquals(AuditAction::ANNOUNCEMENT_CREATED, $logAnnouncement->aksi);
+        $this->assertEquals('announcements', $logAnnouncement->target_type);
+        $this->assertDatabaseHas('audit_logs', [
+            'id' => $logAnnouncement->id,
+            'aksi' => AuditAction::ANNOUNCEMENT_CREATED,
+            'target_type' => 'announcements',
+        ]);
+
+        // 2. pin_thread + forum_thread -> FORUM_THREAD_PINNED + forum_threads
+        $logThread = AuditLogger::log(
+            aksi: 'pin_thread',
+            targetType: 'forum_thread',
+            targetId: 2
+        );
+        $this->assertEquals(AuditAction::FORUM_THREAD_PINNED, $logThread->aksi);
+        $this->assertEquals('forum_threads', $logThread->target_type);
+        $this->assertDatabaseHas('audit_logs', [
+            'id' => $logThread->id,
+            'aksi' => AuditAction::FORUM_THREAD_PINNED,
+            'target_type' => 'forum_threads',
+        ]);
+
+        // 3. umkm_listing -> umkm_listings
+        $logUmkm = AuditLogger::log(
+            aksi: AuditAction::UMKM_LISTING_TAKEDOWN,
+            targetType: 'umkm_listing',
+            targetId: 3
+        );
+        $this->assertEquals('umkm_listings', $logUmkm->target_type);
+        $this->assertDatabaseHas('audit_logs', [
+            'id' => $logUmkm->id,
+            'aksi' => AuditAction::UMKM_LISTING_TAKEDOWN,
+            'target_type' => 'umkm_listings',
+        ]);
+    }
+
+    /**
+     * L. Phase 1: Verifikasi Historical Read Compatibility (AuditLogBuilder).
+     * Historical rows dengan legacy aksi atau legacy target_type tetap ditemukan via query kanonikal.
+     */
+    public function test_audit_log_historical_read_compatibility_finds_legacy_records(): void
+    {
+        // 1. Historical Announcement: aksi 'terbitkan_pengumuman', target_type 'announcement'
+        $historicalAnnouncement = AuditLog::create([
+            'aksi' => 'terbitkan_pengumuman',
+            'target_type' => 'announcement',
+            'target_id' => 101,
+            'rt_id' => $this->rt5->id,
+        ]);
+
+        // Cari via aksi kanonikal
+        $foundByAction = AuditLog::where('aksi', AuditAction::ANNOUNCEMENT_CREATED)
+            ->where('target_id', 101)
+            ->first();
+        $this->assertNotNull($foundByAction);
+        $this->assertEquals($historicalAnnouncement->id, $foundByAction->id);
+
+        // Cari via target_type kanonikal
+        $foundByTarget = AuditLog::where('target_type', 'announcements')
+            ->where('target_id', 101)
+            ->first();
+        $this->assertNotNull($foundByTarget);
+        $this->assertEquals($historicalAnnouncement->id, $foundByTarget->id);
+
+        // 2. Historical Forum Thread: target_type 'forum_thread'
+        $historicalThread = AuditLog::create([
+            'aksi' => 'pin_thread',
+            'target_type' => 'forum_thread',
+            'target_id' => 102,
+            'rt_id' => $this->rt5->id,
+        ]);
+
+        $foundThreadByAction = AuditLog::where('aksi', AuditAction::FORUM_THREAD_PINNED)
+            ->where('target_id', 102)
+            ->first();
+        $this->assertNotNull($foundThreadByAction);
+        $this->assertEquals($historicalThread->id, $foundThreadByAction->id);
+
+        $foundThreadByTarget = AuditLog::where('target_type', 'forum_threads')
+            ->where('target_id', 102)
+            ->first();
+        $this->assertNotNull($foundThreadByTarget);
+        $this->assertEquals($historicalThread->id, $foundThreadByTarget->id);
+
+        // 3. Historical UMKM: target_type 'umkm_listing'
+        $historicalUmkm = AuditLog::create([
+            'aksi' => AuditAction::UMKM_LISTING_APPROVED,
+            'target_type' => 'umkm_listing',
+            'target_id' => 103,
+            'rt_id' => $this->rt5->id,
+        ]);
+
+        $foundUmkmByTarget = AuditLog::where('target_type', 'umkm_listings')
+            ->where('target_id', 103)
+            ->first();
+        $this->assertNotNull($foundUmkmByTarget);
+        $this->assertEquals($historicalUmkm->id, $foundUmkmByTarget->id);
+    }
+
+    /**
+     * M. Phase 1: Verifikasi Morph Map Compatibility dan Target Description Resolver.
+     * Alias legacy maupun kanonikal harus me-resolve model Eloquent yang tepat,
+     * serta KalenderEvent & GaleriAlbum memiliki target description yang benar.
+     */
+    public function test_morph_compatibility_and_target_description_resolution(): void
+    {
+        // 1. Verifikasi morphMap mapping
+        $this->assertEquals(Announcement::class, Relation::getMorphedModel('announcements'));
+        $this->assertEquals(Announcement::class, Relation::getMorphedModel('announcement'));
+
+        $this->assertEquals(ForumThread::class, Relation::getMorphedModel('forum_threads'));
+        $this->assertEquals(ForumThread::class, Relation::getMorphedModel('forum_thread'));
+
+        $this->assertEquals(UmkmListing::class, Relation::getMorphedModel('umkm_listings'));
+        $this->assertEquals(UmkmListing::class, Relation::getMorphedModel('umkm_listing'));
+
+        $this->assertEquals(KalenderEvent::class, Relation::getMorphedModel('kalender_events'));
+        $this->assertEquals(GaleriAlbum::class, Relation::getMorphedModel('galeri_album'));
+
+        // 2. Verifikasi resolving relation & target description untuk KalenderEvent
+        $event = KalenderEvent::create([
+            'scope_type' => 'rt',
+            'scope_id' => $this->rt5->id,
+            'judul' => 'Rapat Kerja Warga RT 05',
+            'deskripsi' => 'Pembahasan program kebersihan',
+            'tanggal' => now()->addDays(2)->toDateString(),
+            'waktu_mulai' => '09:00',
+            'waktu_selesai' => '11:00',
+            'kategori' => KalenderEvent::KATEGORI_RAPAT,
+            'created_by' => $this->ketuaRt5->id,
+        ]);
+
+        $logEvent = AuditLog::create([
+            'aksi' => AuditAction::KALENDER_EVENT_CREATED,
+            'target_type' => 'kalender_events',
+            'target_id' => $event->id,
+        ]);
+
+        $this->assertInstanceOf(KalenderEvent::class, $logEvent->target);
+        $this->assertEquals($event->id, $logEvent->target->id);
+        $this->assertEquals('Agenda: Rapat Kerja Warga RT 05', $logEvent->target_description);
+
+        // 3. Verifikasi resolving relation & target description untuk GaleriAlbum
+        $album = GaleriAlbum::create([
+            'rt_id' => $this->rt5->id,
+            'judul' => 'Album HUT RI Ke-81',
+            'deskripsi' => 'Dokumentasi perayaan kemerdekaan',
+            'tanggal_kegiatan' => now()->toDateString(),
+            'created_by' => $this->ketuaRt5->id,
+        ]);
+
+        $logAlbum = AuditLog::create([
+            'aksi' => AuditAction::GALERI_ALBUM_CREATED,
+            'target_type' => 'galeri_album',
+            'target_id' => $album->id,
+        ]);
+
+        $this->assertInstanceOf(GaleriAlbum::class, $logAlbum->target);
+        $this->assertEquals($album->id, $logAlbum->target->id);
+        $this->assertEquals('Album: Album HUT RI Ke-81', $logAlbum->target_description);
     }
 }

@@ -531,8 +531,8 @@ class AnnouncementKalenderIntegrationTest extends TestCase
 
         // Hanya audit pengumuman yang dicatat, TIDAK ADA KALENDER_EVENT_CREATED
         $this->assertDatabaseHas('audit_logs', [
-            'target_type' => 'announcement',
-            'aksi' => 'terbitkan_pengumuman',
+            'target_type' => 'announcements',
+            'aksi' => AuditAction::ANNOUNCEMENT_CREATED,
         ]);
 
         $this->assertDatabaseMissing('audit_logs', [

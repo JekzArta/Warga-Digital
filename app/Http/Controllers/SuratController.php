@@ -10,6 +10,7 @@ use App\Services\SuratNumberGenerator;
 use App\Services\SuratPdfGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class SuratController extends Controller
@@ -451,57 +452,62 @@ class SuratController extends Controller
      */
     public function approve(Request $request, int $id)
     {
-        $surat = SuratPengajuan::with('rt.rw')->findOrFail($id);
         $user = Auth::user();
 
-        if ($surat->status === 'DISETUJUI') {
-            return redirect()->back()->with('error', 'Surat ini telah disetujui sebelumnya.');
-        }
+        $surat = DB::transaction(function () use ($id, $user) {
+            $surat = SuratPengajuan::with('rt.rw')->lockForUpdate()->findOrFail($id);
 
-        // Generate nomor surat resmi per RT
-        $nomorSurat = SuratNumberGenerator::generate($surat->rt, $surat->jenis_surat);
+            if ($surat->status === 'DISETUJUI') {
+                return $surat;
+            }
 
-        // Generate kode verifikasi dokumen (Lookup Identifier berbasis SHA-256)
-        $kodeVerifikasi = strtoupper(substr(hash('sha256', ($nomorSurat ?? 'WD') . ($surat->id) . ($surat->created_at)), 0, 16));
+            // Generate nomor surat resmi per RT
+            $nomorSurat = SuratNumberGenerator::generate($surat->rt, $surat->jenis_surat);
 
-        // Tangani kemungkinan collision secara eksplisit
-        while (SuratPengajuan::withoutGlobalScopes()->where('kode_verifikasi', $kodeVerifikasi)->where('id', '!=', $surat->id)->exists()) {
-            $kodeVerifikasi = strtoupper(substr(hash('sha256', ($nomorSurat ?? 'WD') . ($surat->id) . ($surat->created_at) . microtime(true)), 0, 16));
-        }
+            // Generate kode verifikasi dokumen (Lookup Identifier berbasis SHA-256)
+            $kodeVerifikasi = strtoupper(substr(hash('sha256', ($nomorSurat ?? 'WD') . ($surat->id) . ($surat->created_at)), 0, 16));
 
-        $sebelum = [
-            'status' => $surat->status,
-            'nomor_surat' => $surat->nomor_surat,
-            'kode_verifikasi' => $surat->kode_verifikasi,
-        ];
+            // Tangani kemungkinan collision secara eksplisit
+            while (SuratPengajuan::withoutGlobalScopes()->where('kode_verifikasi', $kodeVerifikasi)->where('id', '!=', $surat->id)->exists()) {
+                $kodeVerifikasi = strtoupper(substr(hash('sha256', ($nomorSurat ?? 'WD') . ($surat->id) . ($surat->created_at) . microtime(true)), 0, 16));
+            }
 
-        $surat->update([
-            'status' => 'DISETUJUI',
-            'nomor_surat' => $nomorSurat,
-            'kode_verifikasi' => $kodeVerifikasi,
-            'reviewed_by' => $user->id,
-            'alasan_tolak' => null,
-        ]);
+            $sebelum = [
+                'status' => $surat->status,
+                'nomor_surat' => $surat->nomor_surat,
+                'kode_verifikasi' => $surat->kode_verifikasi,
+            ];
 
-        $sesudah = [
-            'status' => 'DISETUJUI',
-            'nomor_surat' => $nomorSurat,
-            'kode_verifikasi' => $kodeVerifikasi,
-            'reviewed_by' => $user->id,
-        ];
+            $surat->update([
+                'status' => 'DISETUJUI',
+                'nomor_surat' => $nomorSurat,
+                'kode_verifikasi' => $kodeVerifikasi,
+                'reviewed_by' => $user->id,
+                'alasan_tolak' => null,
+            ]);
 
-        // Audit log wajib sesuai aturan AGENTS.md
-        AuditLogger::log(
-            AuditAction::SURAT_APPROVED,
-            'surat_pengajuan',
-            $surat->id,
-            $sebelum,
-            $sesudah,
-            'Permohonan surat telah disetujui oleh pengurus RT dan nomor resmi telah diterbitkan.'
-        );
+            $sesudah = [
+                'status' => 'DISETUJUI',
+                'nomor_surat' => $nomorSurat,
+                'kode_verifikasi' => $kodeVerifikasi,
+                'reviewed_by' => $user->id,
+            ];
+
+            // Audit log wajib sesuai aturan AGENTS.md
+            AuditLogger::log(
+                AuditAction::SURAT_APPROVED,
+                'surat_pengajuan',
+                $surat->id,
+                $sebelum,
+                $sesudah,
+                'Permohonan surat telah disetujui oleh pengurus RT dan nomor resmi telah diterbitkan.'
+            );
+
+            return $surat;
+        });
 
         return redirect()->route('surat.show', $surat->id)
-            ->with('success', "Surat berhasil disetujui dengan nomor resmi: {$nomorSurat}. Warga kini dapat mengunduh dokumen PDF.");
+            ->with('success', "Surat berhasil disetujui dengan nomor resmi: {$surat->nomor_surat}. Warga kini dapat mengunduh dokumen PDF.");
     }
 
     /**

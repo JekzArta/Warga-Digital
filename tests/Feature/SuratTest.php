@@ -674,4 +674,114 @@ class SuratTest extends TestCase
 
         $response->assertSessionHasErrors(['dokumen_usaha', 'dokumen_ktp']);
     }
+
+    /**
+     * Uji Keamanan PDP: Blade views surat TIDAK memuat string NIK pengguna.
+     */
+    public function test_blade_views_do_not_contain_raw_nik(): void
+    {
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'form_data' => [
+                'alamat_domisili' => 'Jl. Sekeloa RT 05',
+                'keperluan' => 'Pendaftaran Akun',
+            ],
+            'status' => 'MENUNGGU',
+        ]);
+
+        // 1. Index Warga
+        $resIndex = $this->actingAs($this->wargaRt5)->get(route('surat.index'));
+        $resIndex->assertStatus(200);
+        $resIndex->assertDontSee($this->wargaRt5->nik);
+
+        // 2. Create Form Warga
+        $resCreate = $this->actingAs($this->wargaRt5)->get(route('surat.create', 'SKD'));
+        $resCreate->assertStatus(200);
+        $resCreate->assertDontSee($this->wargaRt5->nik);
+
+        // 3. Show Detail Warga
+        $resShow = $this->actingAs($this->wargaRt5)->get(route('surat.show', $surat->id));
+        $resShow->assertStatus(200);
+        $resShow->assertDontSee($this->wargaRt5->nik);
+
+        // 4. Meja Verifikasi Pengurus RT
+        $resAdmin = $this->actingAs($this->ketuaRt5)->get(route('admin.surat.index'));
+        $resAdmin->assertStatus(200);
+        $resAdmin->assertDontSee($this->wargaRt5->nik);
+    }
+
+    /**
+     * Uji Otorisasi IDOR: Warga lain dalam RT yang sama tidak dapat melihat surat warga pemohon.
+     */
+    public function test_warga_cannot_access_other_warga_surat_in_same_rt(): void
+    {
+        $wargaKedua = User::create([
+            'kode_warga' => 'WRG-RT05-088',
+            'rt_id' => $this->rt5->id,
+            'rw_id' => $this->rt5->rw_id,
+            'nik' => '3273021005050088',
+            'nama' => 'Warga RT Lima Kedua',
+            'jenis_kelamin' => 'P',
+            'tanggal_lahir' => '1995-05-05',
+            'alamat' => 'Jl. Sekeloa RT 05 No 88',
+            'no_hp' => '081288888888',
+            'password' => bcrypt('password123'),
+            'status' => 'aktif',
+        ]);
+
+        $suratMilkWarga1 = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'form_data' => ['keperluan' => 'Pribadi Pemohon 1'],
+            'status' => 'MENUNGGU',
+        ]);
+
+        // Warga kedua mencoba mengakses surat milik warga pertama
+        $response = $this->actingAs($wargaKedua)->get(route('surat.show', $suratMilkWarga1->id));
+        $response->assertStatus(403);
+    }
+
+    /**
+     * Uji Guard Unduh PDF: Surat yang belum DISETUJUI tidak boleh diunduh sebagai PDF.
+     */
+    public function test_unapproved_surat_cannot_be_downloaded_as_pdf(): void
+    {
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'form_data' => ['keperluan' => 'Urus BPJS'],
+            'status' => 'MENUNGGU',
+        ]);
+
+        $response = $this->actingAs($this->wargaRt5)->get(route('surat.download-pdf', $surat->id));
+        $response->assertRedirect(route('surat.show', $surat->id));
+        $response->assertSessionHas('error');
+    }
+
+    /**
+     * Uji Validasi Penolakan: Penolakan harus memiliki alasan minimal 5 karakter.
+     */
+    public function test_rejection_requires_minimum_reason_length(): void
+    {
+        $surat = SuratPengajuan::create([
+            'rt_id' => $this->rt5->id,
+            'user_id' => $this->wargaRt5->id,
+            'jenis_surat' => 'SKD',
+            'form_data' => ['keperluan' => 'Cek Alasan'],
+            'status' => 'MENUNGGU',
+        ]);
+
+        // Kirim alasan kurang dari 5 karakter
+        $response = $this->actingAs($this->ketuaRt5)->post(route('admin.surat.reject', $surat->id), [
+            'alasan_tolak' => 'Gak',
+        ]);
+
+        $response->assertSessionHasErrors(['alasan_tolak']);
+        $surat->refresh();
+        $this->assertNotEquals('DITOLAK', $surat->status);
+    }
 }

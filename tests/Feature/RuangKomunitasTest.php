@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Constants\AuditAction;
 use App\Events\ChatMessageSent;
 use App\Models\Announcement;
 use App\Models\AnnouncementComment;
@@ -462,8 +463,8 @@ class RuangKomunitasTest extends TestCase
         $announcement = Announcement::where('judul', 'Pengumuman Resmi RT 05 Uji Coba')->first();
 
         $this->assertDatabaseHas('audit_logs', [
-            'aksi' => 'terbitkan_pengumuman',
-            'target_type' => 'announcement',
+            'aksi' => AuditAction::ANNOUNCEMENT_CREATED,
+            'target_type' => 'announcements',
             'target_id' => $announcement->id,
             'user_id' => $this->ketuaRt->id,
         ]);
@@ -662,8 +663,8 @@ class RuangKomunitasTest extends TestCase
         $this->assertTrue($thread->fresh()->is_pinned);
 
         $this->assertDatabaseHas('audit_logs', [
-            'aksi' => 'pin_thread',
-            'target_type' => 'forum_thread',
+            'aksi' => AuditAction::FORUM_THREAD_PINNED,
+            'target_type' => 'forum_threads',
             'target_id' => $thread->id,
             'alasan' => 'Topik sangat penting untuk diketahui warga.',
         ]);
@@ -677,8 +678,8 @@ class RuangKomunitasTest extends TestCase
         $this->assertEquals('closed', $thread->fresh()->status);
 
         $this->assertDatabaseHas('audit_logs', [
-            'aksi' => 'close_thread',
-            'target_type' => 'forum_thread',
+            'aksi' => AuditAction::FORUM_THREAD_CLOSED,
+            'target_type' => 'forum_threads',
             'target_id' => $thread->id,
             'alasan' => 'Diskusi telah selesai dan mencapai kesepakatan.',
         ]);
@@ -692,8 +693,8 @@ class RuangKomunitasTest extends TestCase
         $this->assertEquals('dihapus', $thread->fresh()->status);
 
         $this->assertDatabaseHas('audit_logs', [
-            'aksi' => 'hapus_thread',
-            'target_type' => 'forum_thread',
+            'aksi' => AuditAction::FORUM_THREAD_DELETED,
+            'target_type' => 'forum_threads',
             'target_id' => $thread->id,
             'alasan' => 'Konten melanggar norma kerukunan warga.',
         ]);
@@ -871,4 +872,75 @@ class RuangKomunitasTest extends TestCase
         $resRt06->assertStatus(403);
         $this->assertFalse($announcement->fresh()->is_pinned);
     }
+
+    /**
+     * TAHAP 2 — Test 16 (Privasi UU PDP): Pastikan tidak ada NIK pengguna yang bocor di Blade view Ruang Komunitas.
+     */
+    public function test_komunitas_views_do_not_contain_raw_or_masked_nik(): void
+    {
+        $announcement = Announcement::create([
+            'scope_type' => 'rt',
+            'scope_id' => $this->rt05->id,
+            'author_id' => $this->ketuaRt->id,
+            'judul' => 'Pengumuman Uji Privasi NIK',
+            'konten' => 'Memastikan NIK tidak pernah dirender ke HTML.',
+            'tipe' => 'INFO',
+            'is_pinned' => false,
+        ]);
+
+        $cat = ForumCategory::first();
+        $thread = ForumThread::create([
+            'category_id' => $cat->id,
+            'author_id' => $this->userA->id,
+            'author_role_snapshot' => ['warga'],
+            'judul' => 'Thread Uji Privasi NIK',
+            'konten' => 'Uji coba thread tanpa bocor NIK.',
+            'status' => 'aktif',
+        ]);
+
+        $allNiks = [
+            $this->userA->nik,
+            $this->userB->nik,
+            $this->userC->nik,
+            $this->ketuaRt->nik,
+            $this->sekretaris->nik,
+            $this->ketuaRw->nik,
+        ];
+
+        // 1. Index Tab Pengumuman
+        $resPengumuman = $this->actingAs($this->userA)->get(route('komunitas.index', ['scope' => 'rt', 'tab' => 'pengumuman']));
+        $resPengumuman->assertOk();
+        foreach ($allNiks as $nik) {
+            $resPengumuman->assertDontSee($nik);
+        }
+
+        // 2. Index Tab Chat
+        $resChat = $this->actingAs($this->userA)->get(route('komunitas.index', ['scope' => 'rt', 'tab' => 'chat']));
+        $resChat->assertOk();
+        foreach ($allNiks as $nik) {
+            $resChat->assertDontSee($nik);
+        }
+
+        // 3. Index Tab Forum
+        $resForum = $this->actingAs($this->userA)->get(route('komunitas.index', ['scope' => 'rt', 'tab' => 'forum']));
+        $resForum->assertOk();
+        foreach ($allNiks as $nik) {
+            $resForum->assertDontSee($nik);
+        }
+
+        // 4. Detail Pengumuman
+        $resShowPengumuman = $this->actingAs($this->userA)->get(route('komunitas.pengumuman.show', $announcement->id));
+        $resShowPengumuman->assertOk();
+        foreach ($allNiks as $nik) {
+            $resShowPengumuman->assertDontSee($nik);
+        }
+
+        // 5. Detail Thread
+        $resShowThread = $this->actingAs($this->userA)->get(route('komunitas.forum.thread.show', $thread->id));
+        $resShowThread->assertOk();
+        foreach ($allNiks as $nik) {
+            $resShowThread->assertDontSee($nik);
+        }
+    }
 }
+
